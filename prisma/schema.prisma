@@ -1,0 +1,244 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+generator kysely {
+  provider     = "prisma-kysely"
+  output       = "../src/db"
+  fileName     = "types.ts"
+  enumFileName = "enums.ts"
+}
+
+datasource db {
+  provider     = "mysql"
+  url          = env("DATABASE_URL")
+  relationMode = "prisma"
+}
+
+model message_logs {
+  id              Int      @id @default(autoincrement())
+  message_id      String
+  sender_avatar   String
+  sender_name     String
+  sender_id       String
+  sender_username String
+  content         Json
+  created_at      DateTime @default(now())
+  channel_id      String
+  clan_id         String
+  clan_avatar     String
+  clan_name       String
+  clan_username   String
+  channel_label   String   @default("")
+  display_name    String   @default("")
+}
+
+model timesheet_token {
+  id         Int      @id @default(autoincrement())
+  user_id    String
+  token      String
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  expires_at DateTime
+
+  @@unique([user_id])
+}
+
+model user_balance {
+  id         Int      @id @default(autoincrement())
+  user_id    String
+  username   String
+  balance    Int      @default(0)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@unique([user_id])
+  @@index([user_id])
+}
+
+model transaction_logs {
+  id             Int              @id @default(autoincrement())
+  user_id        String
+  amount         Int
+  transaction_id String           @default(uuid())
+  created_at     DateTime         @default(now())
+  updated_at     DateTime         @updatedAt
+  type           ETransactionType @default(DEPOSIT)
+
+  @@unique([transaction_id])
+  @@index([user_id, transaction_id])
+}
+
+enum ETransactionType {
+  DEPOSIT
+  WITHDRAW
+}
+
+model transaction_send_logs {
+  id         Int      @id @default(autoincrement())
+  user_id    String
+  amount     Int
+  to_user_id String
+  note       String   @default("kbb")
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([user_id])
+}
+
+model sena_assistant {
+  id         Int     @id @default(autoincrement())
+  channel_id String
+  clan_id    String
+  is_active  Boolean @default(false)
+  ai_model   String  @default("deepseek-chat")
+  api_key    String  @default("")
+
+  max_tokens BigInt @default(300000)
+
+  created_at                  DateTime                      @default(now())
+  updated_at                  DateTime                      @updatedAt
+  sena_tokens_took            sena_tokens_took?
+  system_prompt               String                        @default("") @db.LongText
+  sena_assistant_message_logs sena_assistant_message_logs[]
+
+  @@unique([channel_id, clan_id])
+  @@index([channel_id, clan_id])
+}
+
+model sena_assistant_message_logs {
+  id                Int               @id @default(autoincrement())
+  sena_assistant_id Int
+  sena_assistant    sena_assistant    @relation(fields: [sena_assistant_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  role              EMessageRole      @default(user)
+  mezon_message_id  String            @unique @default("")
+  message           String            @db.LongText
+  created_at        DateTime          @default(now())
+  updated_at        DateTime          @updatedAt
+  channel_id        String            @default("")
+  clan_id           String            @default("")
+  user_id           String            @default("")
+  sena_tokens_took  sena_tokens_took?
+
+  @@index([sena_assistant_id])
+  @@index([mezon_message_id])
+}
+
+enum EMessageRole {
+  system
+  user
+  assistant
+}
+
+model sena_tokens_took {
+  id                             Int                         @id @default(autoincrement())
+  sena_assistant_id              Int
+  sena_assistant                 sena_assistant              @relation(fields: [sena_assistant_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  tokens_took                    BigInt                      @default(0)
+  created_at                     DateTime                    @default(now())
+  updated_at                     DateTime                    @updatedAt
+  sena_assistant_message_logs_id Int
+  sena_assistant_message_logs    sena_assistant_message_logs @relation(fields: [sena_assistant_message_logs_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([sena_assistant_id])
+  @@unique([sena_assistant_message_logs_id])
+}
+
+enum ETransactionSendStatus {
+  PLAY_KBB
+  PLAY_XS
+}
+
+model keobuabao_game {
+  id                  Int                   @id @default(autoincrement())
+  user_id_create      String
+  cost                Int                   @default(0)
+  only_for_user_id    String
+  created_at          DateTime              @default(now())
+  updated_at          DateTime              @updatedAt
+  keobuabao_game_logs keobuabao_game_logs[]
+  status              EKeobuabaoGameStatus  @default(PLAYING)
+  channel_id          String
+  message_id          String
+  clan_id             String
+  user_name_create    String                @default("")
+  only_for_user_name  String                @default("")
+  is_public_channel   Boolean               @default(false)
+  mode                String                @default("2") //2,4
+
+  @@unique([user_id_create, only_for_user_id, clan_id, channel_id, message_id])
+  @@index([user_id_create])
+}
+
+model keobuabao_game_logs {
+  id             Int            @id @default(autoincrement())
+  game_id        Int
+  user_id        String
+  keo_bua_bao    KeoBuaBaoEnum
+  keobuabao_game keobuabao_game @relation(fields: [game_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([game_id, user_id])
+  @@index([game_id, user_id])
+}
+
+model kqxs {
+  id         Int      @id @default(autoincrement())
+  result     String
+  indetifier String
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@unique([indetifier])
+  @@index([indetifier])
+}
+
+model xs_logs {
+  id         Int      @id @default(autoincrement())
+  user_id    String
+  number     Int
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  cost       Int
+  is_active  Boolean  @default(true)
+  channel_id String   @default("")
+  clan_id    String   @default("")
+  is_public  Boolean  @default(false)
+  username   String   @default("")
+  mode       String   @default("2")
+
+  @@index([user_id])
+}
+
+model lot_logs {
+  id         Int      @id @default(autoincrement())
+  user_id    String
+  number     Int
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  cost       Int
+  is_active  Boolean  @default(true)
+  channel_id String   @default("")
+  clan_id    String   @default("")
+  is_public  Boolean  @default(false)
+  username   String   @default("")
+  mode       String   @default("2")
+
+  @@index([user_id])
+}
+
+enum KeoBuaBaoEnum {
+  KEO
+  BUA
+  BAO
+}
+
+enum EKeobuabaoGameStatus {
+  PLAYING
+  ENDED
+}

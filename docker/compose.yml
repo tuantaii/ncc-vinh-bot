@@ -1,0 +1,17 @@
+version: '3.7'
+
+services:
+  openvpn-proxy:
+    image: dperson/openvpn-client
+    container_name: openvpn-proxy
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+    volumes:
+      - ./vpn:/vpn
+    ports:
+      - '1120:8888'
+    command: >
+      -f /vpn/config.ovpn
+      -p '8888 443'
+      -d

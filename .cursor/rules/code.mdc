@@ -1,0 +1,13 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+
+# Code style
+
+This is source code of a chatbot project for a chat platform alternative to Discord (named Mezon)
+
+## RULES:
+- Never write comments when generate code (IMPORTANT)
+- Use yarn instead of npm
