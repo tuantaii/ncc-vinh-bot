@@ -21,6 +21,13 @@ export type jack_game = {
     only_for_user_name: Generated<string>;
     is_public_channel: Generated<boolean>;
     mode: Generated<string>;
+    deck: Generated<number[]>;
+    playerA_hand: number[];
+    playerB_hand: number[];
+    turn: string | null;
+    playerA_stood: Generated<boolean>;
+    playerB_stood: Generated<boolean>;
+    metadata: unknown | null;
 };
 export type jack_game_logs = {
     id: Generated<number>;

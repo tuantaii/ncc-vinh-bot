@@ -8,6 +8,7 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 import { RedisModule } from './core/redis/redis.module';
 import { MainV2Module } from './v2/main.module';
 import { BotModule } from './v2/bot/bot.module';
+import { SenaModule } from './v2/command/sena/sena.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { BotModule } from './v2/bot/bot.module';
     EventEmitterModule.forRoot(),
     MainV2Module,
     BotModule,
+    SenaModule,
   ],
   controllers: [AppController],
   providers: [AppService],

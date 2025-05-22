@@ -49,6 +49,7 @@ export class MezonService {
       }
     } else if (data.type === 'dm') {
       const clan = await this.mezonClient.clans.fetch(data.payload.clan_id);
+
       if (!clan?.id) {
         throw new Error(`Clan ${data.payload.clan_id} not found`);
       }

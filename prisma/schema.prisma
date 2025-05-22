@@ -170,6 +170,13 @@ model jack_game {
   only_for_user_name String           @default("")
   is_public_channel  Boolean          @default(false)
   mode               String           @default("2") //2,4
+  deck               Int[]            @default([])
+  playerA_hand       Int[]
+  playerB_hand       Int[]
+  turn               String?
+  playerA_stood      Boolean          @default(false)
+  playerB_stood      Boolean          @default(false)
+  metadata           Json?
 
   @@unique([user_id_create, only_for_user_id, clan_id, channel_id, message_id])
   @@index([user_id_create])

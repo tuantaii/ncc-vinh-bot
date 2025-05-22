@@ -9,4 +9,4 @@ import { MezonModule } from 'src/v2/mezon/mezon.module';
   providers: [SenaService, SenaEvent],
   exports: [SenaService, SenaEvent],
 })
-export class TopupModule {}
+export class SenaModule {}

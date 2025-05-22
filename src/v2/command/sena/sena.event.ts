@@ -8,7 +8,9 @@ import {
   CHECK_BALANCE_COMMAND,
   MYSELF_COMMAND,
   WITHDRAW_COMMAND,
+  PLAY_COMMAND,
 } from './constansts';
+
 @Injectable()
 export class SenaEvent {
   constructor(
@@ -31,12 +33,10 @@ export class SenaEvent {
   }
 
   @OnEvent(Events.ChannelMessage)
-  async handleCreateKBB(data: ChannelMessage) {}
-
-  @OnEvent(Events.ChannelMessage)
   async handleChannelMessageButtonClicked(data: ChannelMessage) {
-    console.log({ data });
-    if (data.content.t?.startsWith(WITHDRAW_COMMAND)) {
+    if (data.content.t === PLAY_COMMAND) {
+      await this.senaService.createDeck(data);
+    } else if (data.content.t?.startsWith(WITHDRAW_COMMAND)) {
       const numberInString = data.content.t.match(/\d+/);
       if (numberInString) {
         const number = parseInt(numberInString[0]);
@@ -49,6 +49,6 @@ export class SenaEvent {
 
   @OnEvent(Events.MessageButtonClicked)
   async handleMessageButtonClicked(data: MessageButtonClickedEvent) {
-    console.log({ data });
+    this.senaService.handleButtonClicked(data);
   }
 }
