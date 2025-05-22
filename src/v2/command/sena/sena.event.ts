@@ -1,0 +1,54 @@
+import { Injectable } from '@nestjs/common';
+import { SenaService } from './sena.service';
+import { OnEvent } from '@nestjs/event-emitter';
+import { ChannelMessage, Events, TokenSentEvent } from 'mezon-sdk';
+import { MessageButtonClickedEvent } from './types';
+import { MezonService } from 'src/v2/mezon/mezon.service';
+import {
+  CHECK_BALANCE_COMMAND,
+  MYSELF_COMMAND,
+  WITHDRAW_COMMAND,
+} from './constansts';
+@Injectable()
+export class SenaEvent {
+  constructor(
+    private readonly senaService: SenaService,
+    private readonly _: MezonService,
+  ) {}
+
+  @OnEvent(Events.TokenSend)
+  async handleTokenCreated(data: TokenSentEvent & { transaction_id: string }) {
+    await this.senaService.createToken(data as any);
+  }
+
+  @OnEvent(Events.ChannelMessage)
+  async handleChannelMessage(data: ChannelMessage) {
+    if (data.content.t === CHECK_BALANCE_COMMAND) {
+      await this.senaService.checkBalance(data);
+    } else if (data.content.t === MYSELF_COMMAND) {
+      await this.senaService.introduce(data);
+    }
+  }
+
+  @OnEvent(Events.ChannelMessage)
+  async handleCreateKBB(data: ChannelMessage) {}
+
+  @OnEvent(Events.ChannelMessage)
+  async handleChannelMessageButtonClicked(data: ChannelMessage) {
+    console.log({ data });
+    if (data.content.t?.startsWith(WITHDRAW_COMMAND)) {
+      const numberInString = data.content.t.match(/\d+/);
+      if (numberInString) {
+        const number = parseInt(numberInString[0]);
+        if (number) {
+          await this.senaService.withdraw(data, number);
+        }
+      }
+    }
+  }
+
+  @OnEvent(Events.MessageButtonClicked)
+  async handleMessageButtonClicked(data: MessageButtonClickedEvent) {
+    console.log({ data });
+  }
+}

@@ -20,6 +20,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 // } from 'src/fomu/command/topup/types';
 import { RedisRepository } from 'src/core/redis/redis.repo';
 import { MessageButtonClicked } from 'mezon-sdk/dist/cjs/rtapi/realtime';
+import { BOT_NAME } from '../command/sena/constansts';
 
 @Injectable()
 export class BotGateway {
@@ -158,7 +159,7 @@ export class BotGateway {
     ['attachments', 'mentions', 'references'].forEach((key) => {
       if (!Array.isArray(msg[key])) msg[key] = [];
     });
-    if (msg.display_name?.toLowerCase().includes('sena')) return;
+    if (msg.display_name?.toLowerCase().includes(BOT_NAME)) return;
     try {
       const in_cache = await this.redisRepository.get('msg', msg.id);
       if (in_cache) {

@@ -1,12 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { MezonService } from '../mezon/mezon.service';
 import { MessageQueueStore } from './message-queue-store.service';
-import { generateChannelMessageContent } from 'src/common/utils/message';
 
 @Injectable()
 export class MessageQueueService {
   constructor(
-    private readonly mezonService: MezonService,
+    private readonly _: MezonService,
     private readonly messageQueueStore: MessageQueueStore,
   ) {
     this.startMessageProcessor();
