@@ -31,16 +31,12 @@ REDIS_URL="redis://localhost:6379"
 4. Generate Prisma client:
 
 ```bash
-npm run prisma:generate
-# or
 yarn prisma:generate
 ```
 
 5. Run database migrations:
 
 ```bash
-npm run prisma:migrate
-# or
 yarn prisma:migrate
 ```
 
@@ -49,17 +45,12 @@ yarn prisma:migrate
 ### Development Mode
 
 ```bash
-npm run dev
-# or
 yarn dev
 ```
 
 ### Production Mode
 
 ```bash
-npm run build
-npm run start:prod
-# or
 yarn build
 yarn start:prod
 ```
