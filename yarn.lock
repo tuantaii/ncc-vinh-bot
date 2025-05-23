@@ -3012,6 +3012,14 @@ base@^0.11.1:
     mixin-deep "^1.2.0"
     pascalcase "^0.1.1"
 
+better-sqlite3@^11.10.0:
+  version "11.10.0"
+  resolved "https://registry.yarnpkg.com/better-sqlite3/-/better-sqlite3-11.10.0.tgz#2b1b14c5acd75a43fd84d12cc291ea98cef57d98"
+  integrity sha512-EwhOpyXiOEL/lKzHz9AW1msWFNzGc/z+LzeB3/jnFJpxu+th2yqvzsSWas1v9jgs9+xiXJcD5A8CJxAG2TaghQ==
+  dependencies:
+    bindings "^1.5.0"
+    prebuild-install "^7.1.1"
+
 bin-version-check@^5.1.0:
   version "5.1.0"
   resolved "https://registry.yarnpkg.com/bin-version-check/-/bin-version-check-5.1.0.tgz#788e80e036a87313f8be7908bc20e5abe43f0837"
@@ -3028,6 +3036,13 @@ bin-version@^6.0.0:
   dependencies:
     execa "^5.0.0"
     find-versions "^5.0.0"
+
+bindings@^1.5.0:
+  version "1.5.0"
+  resolved "https://registry.yarnpkg.com/bindings/-/bindings-1.5.0.tgz#10353c9e945334bc0511a6d90b38fbc7c9c504df"
+  integrity sha512-p2q/t/mhvuOj/UeLlV6566GD/guowlr0hHxClI0W9m7MWYkL1F0hLo+0Aexs9HSPCtR1SXQ0TD3MMKrXZajbiQ==
+  dependencies:
+    file-uri-to-path "1.0.0"
 
 bl@^4.0.3, bl@^4.1.0:
   version "4.1.0"
@@ -4589,6 +4604,11 @@ file-type@^19.0.0, file-type@^19.6.0:
     strtok3 "^9.0.1"
     token-types "^6.0.0"
     uint8array-extras "^1.3.0"
+
+file-uri-to-path@1.0.0:
+  version "1.0.0"
+  resolved "https://registry.yarnpkg.com/file-uri-to-path/-/file-uri-to-path-1.0.0.tgz#553a7b8446ff6f684359c445f1e37a05dacc33dd"
+  integrity sha512-0Zt+s3L7Vf1biwWZ29aARiVYLx7iMGnEUl9x33fbB/j3jR81u/O2LbqK+Bm1CDSNDKVtJ/YjwY7TUd5SkeLQLw==
 
 filelist@^1.0.4:
   version "1.0.4"
@@ -6966,13 +6986,14 @@ methods@^1.1.2:
   resolved "https://registry.yarnpkg.com/methods/-/methods-1.1.2.tgz#5529a4d67654134edcc5266656835b0f851afcee"
   integrity sha512-iclAHeNqNm68zFtnZ0e+1L2yUIdvzNoauKU4WBA3VvH/vPFieF7qfRlwUZU+DA9P9bPXIS90ulxoUoCH23sV2w==
 
-mezon-sdk@^2.7.93:
-  version "2.7.95"
-  resolved "https://registry.yarnpkg.com/mezon-sdk/-/mezon-sdk-2.7.95.tgz#33555fa6252310436bfd1d4313294451737d7ec0"
-  integrity sha512-PqiBhQ+To3WpXC4PfmJelUJPRAIIKdmRPdj1C1fPeKnLXJcoEJucg2dUeNu1RCSqn9hSR7XKKw8FK989tnaQ7Q==
+mezon-sdk@^2.7.96:
+  version "2.7.96"
+  resolved "https://registry.yarnpkg.com/mezon-sdk/-/mezon-sdk-2.7.96.tgz#ac5d41ed16aab039797260ee0a4062beb53c89dc"
+  integrity sha512-mMo77NPjzVxw+4I3VvMO3ZJYIZQwhh/zFdKTP3CyZJGFu9rcQkRfgJZiDDNUJ5fOaMoq8Du7TmnAveh4P4Abqw==
   dependencies:
     "@types/ws" "^8.5.12"
     base64-arraybuffer "^1.0.2"
+    better-sqlite3 "^11.10.0"
     jest-cucumber "^3.0.1"
     js-base64 "^3.7.4"
     npm-run-all "^4.1.5"

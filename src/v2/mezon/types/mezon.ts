@@ -1,13 +1,13 @@
 import { ApiMessageAttachment, ChannelMessageContent } from 'mezon-sdk';
 
 export type MezonSendMessageBase = {
-  type: 'channel' | 'dm';
+  type: EMessageType.CHANNEL | EMessageType.DM;
   reply_to_message_id?: string;
 };
 
 export type MezonSendChannelMessage = MezonSendMessageBase & {
   clan_id?: string;
-  type: 'channel';
+  type: EMessageType.CHANNEL;
   payload: {
     channel_id: string;
     message: MezonPayloadContent;
@@ -16,7 +16,7 @@ export type MezonSendChannelMessage = MezonSendMessageBase & {
 };
 
 export type MezonSendDMMessage = MezonSendMessageBase & {
-  type: 'dm';
+  type: EMessageType.DM;
   payload: {
     clan_id: string;
     user_id: string;
@@ -25,17 +25,29 @@ export type MezonSendDMMessage = MezonSendMessageBase & {
   };
 };
 
+export enum EMessageType {
+  DM = 'dm',
+  SYSTEM = 'system',
+  CHANNEL = 'channel',
+}
+
+export enum EMessagePayloadType {
+  NORMAL_TEXT = 'normal_text',
+  SYSTEM = 'system',
+  OPTIONAL = 'optional',
+}
+
 export type MezonPayloadContent =
   | {
-      type: 'normal_text';
+      type: EMessagePayloadType.NORMAL_TEXT;
       content: string;
     }
   | {
-      type: 'system';
+      type: EMessagePayloadType.SYSTEM;
       content: string;
     }
   | {
-      type: 'optional';
+      type: EMessagePayloadType.OPTIONAL;
       content: ChannelMessageContent;
     };
 

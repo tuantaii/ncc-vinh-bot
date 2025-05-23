@@ -6,8 +6,8 @@ export class UserService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getUserBalance(data: ChannelMessage) {
-    const user = await this.prisma.user_balance.findUnique({
-      where: { user_id: data.sender_id },
+    const user = await this.prisma.userBalance.findUnique({
+      where: { userId: data.sender_id },
     });
     return user;
   }

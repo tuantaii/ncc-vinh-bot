@@ -6,127 +6,92 @@ export type Timestamp = ColumnType<Date, Date | string, Date | string>;
 
 import type { ETransactionType, EMessageRole, ETransactionSendStatus, EJackGameStatus } from "./enums";
 
-export type jack_game = {
+export type BlackJackGame = {
     id: Generated<number>;
-    user_id_create: string;
+    hostId: string;
+    hostName: string;
+    guestId: string;
+    guestName: string;
     cost: Generated<number>;
-    only_for_user_id: string;
-    created_at: Generated<Timestamp>;
-    updated_at: Timestamp;
+    createdAt: Generated<Timestamp>;
+    updatedAt: Timestamp;
     status: Generated<EJackGameStatus>;
-    channel_id: string;
-    message_id: string;
-    clan_id: string;
-    user_name_create: Generated<string>;
-    only_for_user_name: Generated<string>;
-    is_public_channel: Generated<boolean>;
+    channelId: string;
+    messageId: string;
+    clanId: string;
+    isPublicChannel: Generated<boolean>;
     mode: Generated<string>;
-    deck: Generated<number[]>;
-    playerA_hand: number[];
-    playerB_hand: number[];
-    turn: string | null;
-    playerA_stood: Generated<boolean>;
-    playerB_stood: Generated<boolean>;
+    remainingCards: number[];
+    hostCards: number[];
+    guestCards: number[];
+    turnOf: string | null;
+    isHostStand: Generated<boolean>;
+    isGuestStand: Generated<boolean>;
     metadata: unknown | null;
 };
-export type jack_game_logs = {
+export type BlackJackGameLogs = {
     id: Generated<number>;
-    game_id: number;
-    user_id: string;
+    gameId: number;
+    userId: string;
     card: string;
 };
-export type message_logs = {
+export type MessageLogs = {
     id: Generated<number>;
-    message_id: string;
-    sender_avatar: string;
-    sender_name: string;
-    sender_id: string;
-    sender_username: string;
+    messageId: string;
+    senderAvatar: string;
+    senderName: string;
+    senderId: string;
+    senderUsername: string;
     content: unknown;
-    created_at: Generated<Timestamp>;
-    channel_id: string;
-    clan_id: string;
-    clan_avatar: string;
-    clan_name: string;
-    clan_username: string;
-    channel_label: Generated<string>;
-    display_name: Generated<string>;
+    createdAt: Generated<Timestamp>;
+    channelId: string;
+    clanId: string;
+    clanAvatar: string;
+    clanName: string;
+    clanUsername: string;
+    channelLabel: Generated<string>;
+    displayName: Generated<string>;
 };
-export type sena_assistant = {
+export type TimesheetToken = {
     id: Generated<number>;
-    channel_id: string;
-    clan_id: string;
-    is_active: Generated<boolean>;
-    ai_model: Generated<string>;
-    api_key: Generated<string>;
-    max_tokens: Generated<string>;
-    created_at: Generated<Timestamp>;
-    updated_at: Timestamp;
-    system_prompt: Generated<string>;
-};
-export type sena_assistant_message_logs = {
-    id: Generated<number>;
-    sena_assistant_id: number;
-    role: Generated<EMessageRole>;
-    mezon_message_id: Generated<string>;
-    message: string;
-    created_at: Generated<Timestamp>;
-    updated_at: Timestamp;
-    channel_id: Generated<string>;
-    clan_id: Generated<string>;
-    user_id: Generated<string>;
-};
-export type sena_tokens_took = {
-    id: Generated<number>;
-    sena_assistant_id: number;
-    tokens_took: Generated<string>;
-    created_at: Generated<Timestamp>;
-    updated_at: Timestamp;
-    sena_assistant_message_logs_id: number;
-};
-export type timesheet_token = {
-    id: Generated<number>;
-    user_id: string;
+    userId: string;
     token: string;
-    created_at: Generated<Timestamp>;
-    updated_at: Timestamp;
-    expires_at: Timestamp;
+    createdAt: Generated<Timestamp>;
+    updatedAt: Timestamp;
+    expiresAt: Timestamp;
 };
-export type transaction_logs = {
+export type TransactionLogs = {
     id: Generated<number>;
-    user_id: string;
+    userId: string;
     amount: number;
-    transaction_id: string;
-    created_at: Generated<Timestamp>;
-    updated_at: Timestamp;
+    transactionId: string;
+    createdAt: Generated<Timestamp>;
+    updatedAt: Timestamp;
     type: Generated<ETransactionType>;
 };
-export type transaction_send_logs = {
+export type TransactionSendLogs = {
     id: Generated<number>;
-    user_id: string;
+    userId: string;
     amount: number;
-    to_user_id: string;
+    toUserId: string;
     note: Generated<string>;
-    created_at: Generated<Timestamp>;
-    updated_at: Timestamp;
+    createdAt: Generated<Timestamp>;
+    updatedAt: Timestamp;
 };
-export type user_balance = {
+export type UserBalance = {
     id: Generated<number>;
-    user_id: string;
+    userId: string;
     username: string;
     balance: Generated<number>;
-    created_at: Generated<Timestamp>;
-    updated_at: Timestamp;
+    createdAt: Generated<Timestamp>;
+    updatedAt: Timestamp;
 };
 export type DB = {
-    jack_game: jack_game;
-    jack_game_logs: jack_game_logs;
-    message_logs: message_logs;
-    sena_assistant: sena_assistant;
-    sena_assistant_message_logs: sena_assistant_message_logs;
-    sena_tokens_took: sena_tokens_took;
-    timesheet_token: timesheet_token;
-    transaction_logs: transaction_logs;
-    transaction_send_logs: transaction_send_logs;
-    user_balance: user_balance;
+    BlackJackGame: BlackJackGame;
+    BlackJackGameLogs: BlackJackGameLogs;
+    MessageLogs: MessageLogs;
+    TimesheetToken: TimesheetToken;
+    TransactionLogs: TransactionLogs;
+    TransactionSendLogs: TransactionSendLogs;
+    UserBalance: UserBalance;
 };

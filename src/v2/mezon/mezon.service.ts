@@ -7,6 +7,8 @@ import {
   MezonClient,
 } from 'mezon-sdk';
 import {
+  EMessagePayloadType,
+  EMessageType,
   MezonSendMessage,
   MezonSendToken,
   MezonUpdateMessage,
@@ -18,7 +20,7 @@ export class MezonService {
 
   async sendMessage(data: MezonSendMessage) {
     let sendFunction: any;
-    if (data.type === 'channel') {
+    if (data.type === EMessageType.CHANNEL) {
       let root: any;
       if (data.clan_id) {
         const clan = await this.mezonClient.clans.fetch(data.clan_id);
@@ -47,7 +49,7 @@ export class MezonService {
         }
         sendFunction = message.reply.bind(message);
       }
-    } else if (data.type === 'dm') {
+    } else if (data.type === EMessageType.DM) {
       const clan = await this.mezonClient.clans.fetch(data.payload.clan_id);
 
       if (!clan?.id) {
@@ -65,13 +67,13 @@ export class MezonService {
 
     let newMessage: ChannelMessageContent;
 
-    if (data.payload.message.type === 'optional') {
+    if (data.payload.message.type === EMessagePayloadType.OPTIONAL) {
       newMessage = data.payload.message.content;
     } else {
       newMessage = {
         t: data.payload.message.content,
         mk:
-          data.payload.message.type === 'normal_text'
+          data.payload.message.type === EMessagePayloadType.NORMAL_TEXT
             ? []
             : [
                 {
@@ -102,22 +104,22 @@ export class MezonService {
     }
 
     switch (data.payload.message.type) {
-      case 'normal_text':
+      case EMessagePayloadType.NORMAL_TEXT:
         return (await sendFunction(...args)) as ChannelMessageAck;
 
-      case 'system':
+      case EMessagePayloadType.SYSTEM:
         return (await sendFunction({
           ...newMessage,
           mk: [
             {
-              type: 'pre',
+              type: EMarkdownType.PRE,
               s: 0,
               e: data.payload.message.content.length,
             },
           ],
         })) as ChannelMessageAck;
 
-      case 'optional':
+      case EMessagePayloadType.OPTIONAL:
         return (await sendFunction(...args)) as ChannelMessageAck;
     }
   }
@@ -145,11 +147,11 @@ export class MezonService {
       );
     }
 
-    if (data.content.type === 'normal_text') {
+    if (data.content.type === EMessagePayloadType.NORMAL_TEXT) {
       return message.update({
         t: data.content.content,
       });
-    } else if (data.content.type === 'system') {
+    } else if (data.content.type === EMessagePayloadType.SYSTEM) {
       return message.update({
         t: data.content.content,
         mk: [
@@ -160,7 +162,7 @@ export class MezonService {
           },
         ],
       });
-    } else if (data.content.type === 'optional') {
+    } else if (data.content.type === EMessagePayloadType.OPTIONAL) {
       return message.update(data.content.content);
     }
   }

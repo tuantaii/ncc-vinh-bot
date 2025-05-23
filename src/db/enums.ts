@@ -10,10 +10,11 @@ export const EMessageRole = {
 } as const;
 export type EMessageRole = (typeof EMessageRole)[keyof typeof EMessageRole];
 export const ETransactionSendStatus = {
-    PLAY_JACK: "PLAY_JACK"
+    PLAY_BlACK_JACK: "PLAY_BlACK_JACK"
 } as const;
 export type ETransactionSendStatus = (typeof ETransactionSendStatus)[keyof typeof ETransactionSendStatus];
 export const EJackGameStatus = {
+    WAITING: "WAITING",
     PLAYING: "PLAYING",
     ENDED: "ENDED"
 } as const;

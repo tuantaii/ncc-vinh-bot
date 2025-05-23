@@ -21,58 +21,58 @@ datasource db {
   relationMode = "prisma"
 }
 
-model message_logs {
-  id              Int      @id @default(autoincrement())
-  message_id      String
-  sender_avatar   String
-  sender_name     String
-  sender_id       String
-  sender_username String
-  content         Json
-  created_at      DateTime @default(now())
-  channel_id      String
-  clan_id         String
-  clan_avatar     String
-  clan_name       String
-  clan_username   String
-  channel_label   String   @default("")
-  display_name    String   @default("")
+model MessageLogs {
+  id             Int      @id @default(autoincrement())
+  messageId      String
+  senderAvatar   String
+  senderName     String
+  senderId       String
+  senderUsername String
+  content        Json
+  createdAt      DateTime @default(now())
+  channelId      String
+  clanId         String
+  clanAvatar     String
+  clanName       String
+  clanUsername   String
+  channelLabel   String   @default("")
+  displayName    String   @default("")
 }
 
-model timesheet_token {
-  id         Int      @id @default(autoincrement())
-  user_id    String
-  token      String
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
-  expires_at DateTime
+model TimesheetToken {
+  id        Int      @id @default(autoincrement())
+  userId    String
+  token     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  expiresAt DateTime
 
-  @@unique([user_id])
+  @@unique([userId])
 }
 
-model user_balance {
-  id         Int      @id @default(autoincrement())
-  user_id    String
-  username   String
-  balance    Int      @default(0)
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
+model UserBalance {
+  id        Int      @id @default(autoincrement())
+  userId    String
+  username  String
+  balance   Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  @@unique([user_id])
-  @@index([user_id])
+  @@unique([userId])
+  @@index([userId])
 }
 
-model transaction_logs {
-  id             Int              @id @default(autoincrement())
-  user_id        String
-  amount         Int
-  transaction_id String           @default(uuid())
-  created_at     DateTime         @default(now())
-  updated_at     DateTime         @updatedAt
-  type           ETransactionType @default(DEPOSIT)
+model TransactionLogs {
+  id            Int              @id @default(autoincrement())
+  userId        String
+  amount        Int
+  transactionId String           @default(uuid())
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  type          ETransactionType @default(DEPOSIT)
 
-  @@unique([transaction_id])
-  @@index([user_id, transaction_id])
+  @@unique([transactionId])
+  @@index([userId, transactionId])
 }
 
 enum ETransactionType {
@@ -80,54 +80,16 @@ enum ETransactionType {
   WITHDRAW
 }
 
-model transaction_send_logs {
-  id         Int      @id @default(autoincrement())
-  user_id    String
-  amount     Int
-  to_user_id String
-  note       String   @default("kbb")
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
+model TransactionSendLogs {
+  id        Int      @id @default(autoincrement())
+  userId    String
+  amount    Int
+  toUserId  String
+  note      String   @default("kbb")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  @@index([user_id])
-}
-
-model sena_assistant {
-  id         Int     @id @default(autoincrement())
-  channel_id String
-  clan_id    String
-  is_active  Boolean @default(false)
-  ai_model   String  @default("deepseek-chat")
-  api_key    String  @default("")
-
-  max_tokens BigInt @default(300000)
-
-  created_at                  DateTime                      @default(now())
-  updated_at                  DateTime                      @updatedAt
-  sena_tokens_took            sena_tokens_took?
-  system_prompt               String                        @default("") @db.Text
-  sena_assistant_message_logs sena_assistant_message_logs[]
-
-  @@unique([channel_id, clan_id])
-  @@index([channel_id, clan_id])
-}
-
-model sena_assistant_message_logs {
-  id                Int               @id @default(autoincrement())
-  sena_assistant_id Int
-  sena_assistant    sena_assistant    @relation(fields: [sena_assistant_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  role              EMessageRole      @default(user)
-  mezon_message_id  String            @unique @default("")
-  message           String            @db.Text
-  created_at        DateTime          @default(now())
-  updated_at        DateTime          @updatedAt
-  channel_id        String            @default("")
-  clan_id           String            @default("")
-  user_id           String            @default("")
-  sena_tokens_took  sena_tokens_took?
-
-  @@index([sena_assistant_id])
-  @@index([mezon_message_id])
+  @@index([userId])
 }
 
 enum EMessageRole {
@@ -136,64 +98,44 @@ enum EMessageRole {
   assistant
 }
 
-model sena_tokens_took {
-  id                             Int                         @id @default(autoincrement())
-  sena_assistant_id              Int
-  sena_assistant                 sena_assistant              @relation(fields: [sena_assistant_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  tokens_took                    BigInt                      @default(0)
-  created_at                     DateTime                    @default(now())
-  updated_at                     DateTime                    @updatedAt
-  sena_assistant_message_logs_id Int
-  sena_assistant_message_logs    sena_assistant_message_logs @relation(fields: [sena_assistant_message_logs_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
-
-  @@unique([sena_assistant_id])
-  @@unique([sena_assistant_message_logs_id])
-}
-
 enum ETransactionSendStatus {
-  PLAY_JACK
+  PLAY_BlACK_JACK
 }
 
-model jack_game {
-  id                 Int              @id @default(autoincrement())
-  user_id_create     String
-  cost               Int              @default(0)
-  only_for_user_id   String
-  created_at         DateTime         @default(now())
-  updated_at         DateTime         @updatedAt
-  jack_game_logs     jack_game_logs[]
-  status             EJackGameStatus  @default(PLAYING)
-  channel_id         String
-  message_id         String
-  clan_id            String
-  user_name_create   String           @default("")
-  only_for_user_name String           @default("")
-  is_public_channel  Boolean          @default(false)
-  mode               String           @default("2") //2,4
-  deck               Int[]            @default([])
-  playerA_hand       Int[]
-  playerB_hand       Int[]
-  turn               String?
-  playerA_stood      Boolean          @default(false)
-  playerB_stood      Boolean          @default(false)
-  metadata           Json?
+model BlackJackGame {
+  id              Int             @id @default(autoincrement())
+  hostId          String
+  hostName        String
+  guestId         String
+  guestName       String
+  cost            Int             @default(0)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  status          EJackGameStatus @default(WAITING)
+  channelId       String
+  messageId       String
+  clanId          String
+  isPublicChannel Boolean         @default(false)
+  mode            String          @default("2") //2,4
+  remainingCards  Int[]
+  hostCards       Int[]
+  guestCards      Int[]
+  turnOf          String?
+  isHostStand     Boolean         @default(false)
+  isGuestStand    Boolean         @default(false)
 
-  @@unique([user_id_create, only_for_user_id, clan_id, channel_id, message_id])
-  @@index([user_id_create])
+  metadata Json?
 }
 
-model jack_game_logs {
-  id        Int       @id @default(autoincrement())
-  game_id   Int
-  user_id   String
-  card      String
-  jack_game jack_game @relation(fields: [game_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
-
-  @@unique([game_id, user_id])
-  @@index([game_id, user_id])
+model BlackJackGameLogs {
+  id     Int    @id @default(autoincrement())
+  gameId Int
+  userId String
+  card   String
 }
 
 enum EJackGameStatus {
+  WAITING
   PLAYING
   ENDED
 }
