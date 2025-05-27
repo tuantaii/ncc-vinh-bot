@@ -19,3 +19,51 @@ export enum GAME_RESULT {
   GUEST_WIN,
   DRAW,
 }
+
+export const gameMessages = {
+  [GAME_RESULT.HOST_WIN]: (data: {
+    hostName: string;
+    hostCardDisplay: string;
+    hostScore: number;
+    guestName: string;
+    guestCardDisplay: string;
+    guestScore: number;
+  }) =>
+    `Cả 2 đã dằn.\nBài của ${data.hostName} là ${data.hostCardDisplay} => Tổng: ${data.hostScore}.\nBài của ${data.guestName} là ${data.guestCardDisplay} => Tổng: ${data.guestScore}.\nKết quả: ${data.hostName} thắng`,
+  [GAME_RESULT.GUEST_WIN]: (data: {
+    hostName: string;
+    hostCardDisplay: string;
+    hostScore: number;
+    guestName: string;
+    guestCardDisplay: string;
+    guestScore: number;
+  }) =>
+    `Cả 2 đã dằn.\nBài của ${data.hostName} là ${data.hostCardDisplay} => Tổng: ${data.hostScore}.\nBài của ${data.guestName} là ${data.guestCardDisplay} => Tổng: ${data.guestScore}.\nKết quả: ${data.hostName} thắng`,
+  guestPlayerStood: (data: { hostName: string; guestName: string }) =>
+    `${data.guestName} đã dằn, tới lượt ${data.hostName}.`,
+  playerHitting: (data: {
+    guestName: string;
+    cardCount: number;
+    hostName?: string;
+  }) =>
+    data.hostName == null
+      ? `${data.guestName} đã dằn, ${data.hostName} đang rút ${data.cardCount} lá bài.`
+      : `${data.guestName} đang rút ${data.cardCount} lá bài.`,
+
+  userHand: (data: { userName: string; cardDisplay: string; score: number }) =>
+    `Bài của ${data.userName} là ${data.cardDisplay}, Tổng điểm là ${data.score}`,
+
+  blackjack: (data: { winnerName: string; loserName: string }) =>
+    `${data.winnerName} được Xì Jack, ${data.loserName} thua. x2 money.`,
+  doubleAce: (data: { winnerName: string; loserName: string }) =>
+    `${data.winnerName} được Xì Bàng, ${data.loserName} thua. x3 money.`,
+  [GAME_RESULT.DRAW]: (data: {
+    hostName: string;
+    hostCardDisplay: string;
+    hostScore: number;
+    guestName: string;
+    guestCardDisplay: string;
+    guestScore: number;
+  }) =>
+    `Bài của ${data.hostName} là ${data.hostCardDisplay} => Tổng: ${data.hostScore}.\nBài của ${data.guestName} là ${data.guestCardDisplay} => Tổng: ${data.guestScore}.\nKết quả: HÒAAAAAAAA`,
+};

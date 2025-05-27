@@ -71,52 +71,108 @@ export class Game {
     }
   }
 
+  end() {
+    this.status = EJackGameStatus.ENDED;
+    this.turnOf = null;
+    this.isHostStand = true;
+    this.isGuestStand = true;
+  }
+
   stand() {
     const isHostTurn = this.turnOf === this.hostId;
     if (isHostTurn) {
-      this.isHostStand = true;
-      this.status = EJackGameStatus.ENDED;
-      this.turnOf = null;
+      this.end();
     } else {
       this.isGuestStand = true;
       this.turnOf = this.hostId;
     }
   }
 
-  getScore(cards: number[]): number {
+  get result(): GAME_RESULT {
+    const { value: guestScore } = this.guestScore;
+    const { value: hostScore } = this.hostScore;
+
+    if (guestScore === hostScore) {
+      return GAME_RESULT.DRAW;
+    }
+
+    if (hostScore > MAX_SCORE && guestScore > MAX_SCORE) {
+      return GAME_RESULT.DRAW;
+    }
+
+    if (hostScore > MAX_SCORE) {
+      return GAME_RESULT.GUEST_WIN;
+    }
+
+    if (guestScore > MAX_SCORE) {
+      return GAME_RESULT.HOST_WIN;
+    }
+
+    return guestScore > hostScore
+      ? GAME_RESULT.GUEST_WIN
+      : GAME_RESULT.HOST_WIN;
+  }
+
+  private getScore(cardIndices: number[]): {
+    value: number;
+    isBlackjack: boolean;
+    isDoubleAce: boolean;
+  } {
     let total = 0;
     let aceCount = 0;
-    for (const card of cards) {
-      const rankIndex = card % 13;
-      if (rankIndex === 0) {
+    const ranks = cardIndices.map((i) => i % 13);
+
+    for (const rank of ranks) {
+      if (rank === 0) {
         aceCount++;
         total += 11;
-      } else if (rankIndex >= 10) {
+      } else if (rank >= 10) {
         total += 10;
       } else {
-        total += rankIndex + 1;
+        total += rank + 1;
       }
     }
+
     while (total > 21 && aceCount > 0) {
       total -= 10;
       aceCount--;
     }
-    return total;
+
+    const isDoubleAce =
+      cardIndices.length === 2 && ranks[0] === 0 && ranks[1] === 0;
+    const isBlackjack =
+      cardIndices.length === 2 &&
+      ranks.includes(0) &&
+      ranks.some((r) => r === 10 || r === 11 || r === 12 || r === 9); // 10, J, Q, K
+
+    return {
+      value: total,
+      isBlackjack,
+      isDoubleAce,
+    };
   }
 
-  get result(): GAME_RESULT {
-    if (this.hostScore > MAX_SCORE && this.guestScore > MAX_SCORE) {
+  calculateEarlyWin(): GAME_RESULT | null {
+    const hostResult = this.getScore(this.hostCards);
+    const guestResult = this.getScore(this.guestCards);
+    if (hostResult.isDoubleAce && guestResult.isDoubleAce) {
       return GAME_RESULT.DRAW;
     }
-
-    if (this.hostScore > MAX_SCORE || this.guestScore > this.hostScore) {
-      return GAME_RESULT.GUEST_WIN;
-    }
-
-    if (this.guestScore > MAX_SCORE || this.hostScore > this.guestScore) {
+    if (hostResult.isDoubleAce) {
       return GAME_RESULT.HOST_WIN;
     }
-
-    return GAME_RESULT.DRAW;
+    if (guestResult.isDoubleAce) {
+      return GAME_RESULT.GUEST_WIN;
+    }
+    if (hostResult.isBlackjack && guestResult.isBlackjack) {
+      return GAME_RESULT.DRAW;
+    }
+    if (hostResult.isBlackjack) {
+      return GAME_RESULT.HOST_WIN;
+    }
+    if (guestResult.isBlackjack) {
+      return GAME_RESULT.GUEST_WIN;
+    }
+    return null;
   }
 }
