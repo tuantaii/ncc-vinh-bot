@@ -81,11 +81,26 @@ export class Game {
   stand() {
     const isHostTurn = this.turnOf === this.hostId;
     if (isHostTurn) {
-      this.end();
+      this.isHostStand = true;
+      if (this.isGuestStand) {
+        this.end();
+      } else {
+        this.turnOf = this.guestId;
+      }
     } else {
       this.isGuestStand = true;
-      this.turnOf = this.hostId;
+      if (this.isHostStand) {
+        this.end();
+      } else {
+        this.turnOf = this.hostId;
+      }
     }
+  }
+
+  isFiveSprits(player: 'host' | 'guest'): boolean {
+    const cards = player === 'host' ? this.hostCards : this.guestCards;
+    const score = this.getScore(cards);
+    return cards.length === 5 && score.value <= 21;
   }
 
   get result(): GAME_RESULT {
@@ -117,6 +132,7 @@ export class Game {
     value: number;
     isBlackjack: boolean;
     isDoubleAce: boolean;
+    isFiveSprits: boolean;
   } {
     let total = 0;
     let aceCount = 0;
@@ -144,11 +160,13 @@ export class Game {
       cardIndices.length === 2 &&
       ranks.includes(0) &&
       ranks.some((r) => r === 10 || r === 11 || r === 12 || r === 9); // 10, J, Q, K
+    const isFiveSprits = cardIndices.length === 5 && total <= 21;
 
     return {
       value: total,
       isBlackjack,
       isDoubleAce,
+      isFiveSprits,
     };
   }
 

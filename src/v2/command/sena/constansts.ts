@@ -57,6 +57,8 @@ export const gameMessages = {
     `${data.winnerName} được Xì Jack, ${data.loserName} thua. x2 money.`,
   doubleAce: (data: { winnerName: string; loserName: string }) =>
     `${data.winnerName} được Xì Bàng, ${data.loserName} thua. x3 money.`,
+  fiveSprits: (data: { winnerName: string; loserName: string }) =>
+    `${data.winnerName} được ngũ linh, ${data.loserName} thua. x2 money.`,
   [GAME_RESULT.DRAW]: (data: {
     hostName: string;
     hostCardDisplay: string;

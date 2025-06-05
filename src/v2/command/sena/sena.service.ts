@@ -417,6 +417,8 @@ export class SenaService {
 
       game.startGame();
 
+      // game.hostCards = [0, 13]; // Guest starts with 2 cards
+
       // const [playerMessage, hostMessage] = await Promise.all([
       //   this.sendCardMessageToUser(record.guestId, game.guestCards),
       //   this.sendCardMessageToUser(record.hostId, game.hostCards),
@@ -438,45 +440,53 @@ export class SenaService {
       ]);
 
       const earlyWin = game.calculateEarlyWin();
-      if (earlyWin) {
+
+      if (earlyWin === GAME_RESULT.HOST_WIN || earlyWin) {
         game.end();
 
-        const content =
-          game.result == GAME_RESULT.HOST_WIN && game.hostScore.isDoubleAce
-            ? gameMessages.doubleAce({
-                winnerName: game.hostName,
-                loserName: game.guestName,
-              })
-            : game.result == GAME_RESULT.GUEST_WIN &&
-                game.guestScore.isDoubleAce
-              ? gameMessages.doubleAce({
-                  winnerName: game.guestName,
-                  loserName: game.hostName,
-                })
-              : game.result == GAME_RESULT.HOST_WIN &&
-                  game.hostScore.isBlackjack
-                ? gameMessages.blackjack({
-                    winnerName: game.hostName,
-                    loserName: game.guestName,
-                  })
-                : game.result == GAME_RESULT.GUEST_WIN &&
-                    game.guestScore.isBlackjack
-                  ? gameMessages.blackjack({
-                      winnerName: game.guestName,
-                      loserName: game.hostName,
-                    })
-                  : gameMessages[game.result]({
-                      hostName: game.hostName,
-                      hostCardDisplay: game.hostCards
-                        .map(this.getCardDisplay)
-                        .join(', '),
-                      hostScore: game.hostScore.value,
-                      guestName: game.guestName,
-                      guestCardDisplay: game.guestCards
-                        .map(this.getCardDisplay)
-                        .join(', '),
-                      guestScore: game.guestScore.value,
-                    });
+        let content: string;
+
+        if (earlyWin === GAME_RESULT.HOST_WIN && game.hostScore.isDoubleAce) {
+          content = gameMessages.doubleAce({
+            winnerName: game.hostName,
+            loserName: game.guestName,
+          });
+        } else if (
+          earlyWin === GAME_RESULT.GUEST_WIN &&
+          game.guestScore.isDoubleAce
+        ) {
+          content = gameMessages.doubleAce({
+            winnerName: game.guestName,
+            loserName: game.hostName,
+          });
+        } else if (
+          earlyWin === GAME_RESULT.HOST_WIN &&
+          game.hostScore.isBlackjack
+        ) {
+          content = gameMessages.blackjack({
+            winnerName: game.hostName,
+            loserName: game.guestName,
+          });
+        } else if (
+          earlyWin === GAME_RESULT.GUEST_WIN &&
+          game.guestScore.isBlackjack
+        ) {
+          content = gameMessages.blackjack({
+            winnerName: game.guestName,
+            loserName: game.hostName,
+          });
+        } else {
+          content = gameMessages[earlyWin]({
+            hostName: game.hostName,
+            hostCardDisplay: game.hostCards.map(this.getCardDisplay).join(', '),
+            hostScore: game.hostScore.value,
+            guestName: game.guestName,
+            guestCardDisplay: game.guestCards
+              .map(this.getCardDisplay)
+              .join(', '),
+            guestScore: game.guestScore.value,
+          });
+        }
 
         await this.mezon.updateMessage({
           channel_id: record.channelId,
@@ -531,7 +541,51 @@ export class SenaService {
         score: this.calculateHandValue(game.guestCards),
       });
 
+      if (game.isFiveSprits('guest')) {
+        game.end();
+
+        const content = gameMessages.fiveSprits({
+          winnerName: game.guestName,
+          loserName: game.hostName,
+        });
+
+        await Promise.all([
+          this.mezon.updateMessage({
+            channel_id: guestChannelId!,
+            message_id: guestMessageId!,
+            content: {
+              type: EMessagePayloadType.SYSTEM,
+              content: playerMessageText,
+            },
+          }),
+
+          this.mezon.updateMessage({
+            channel_id: record.channelId,
+            message_id: record.messageId,
+            content: {
+              type: EMessagePayloadType.SYSTEM,
+              content,
+            },
+          }),
+
+          this.prisma.blackJackGame.update({
+            where: { id: game.id },
+            data: {
+              remainingCards: game.remainingCards,
+              guestCards: game.guestCards,
+              turnOf: game.turnOf,
+              isGuestStand: game.isGuestStand,
+              status: game.status,
+            },
+          }),
+        ]);
+        return;
+      }
+
       const isChangeTurn = game.guestCards.length === MAX_CARDS;
+
+      const cardCount =
+        (isGuestTurn ? game.guestCards : game.hostCards).length - 2;
 
       const systemMessageText = isChangeTurn
         ? gameMessages.guestPlayerStood({
@@ -540,7 +594,8 @@ export class SenaService {
           })
         : gameMessages.playerHitting({
             guestName: game.guestName,
-            cardCount: game.guestCards.length - 2,
+            cardCount,
+            hostName: game.hostName,
           });
 
       await Promise.all([
@@ -583,6 +638,47 @@ export class SenaService {
         score: this.calculateHandValue(game.hostCards),
       });
 
+      if (game.isFiveSprits('host')) {
+        game.end();
+
+        const content = gameMessages.fiveSprits({
+          winnerName: game.hostName,
+          loserName: game.guestName,
+        });
+
+        await Promise.all([
+          this.mezon.updateMessage({
+            channel_id: hostChannelId!,
+            message_id: hostMessageId!,
+            content: {
+              type: EMessagePayloadType.SYSTEM,
+              content: hostMessageText,
+            },
+          }),
+
+          this.mezon.updateMessage({
+            channel_id: record.channelId,
+            message_id: record.messageId,
+            content: {
+              type: EMessagePayloadType.SYSTEM,
+              content,
+            },
+          }),
+
+          this.prisma.blackJackGame.update({
+            where: { id: game.id },
+            data: {
+              remainingCards: game.remainingCards,
+              guestCards: game.guestCards,
+              turnOf: game.turnOf,
+              isGuestStand: game.isGuestStand,
+              status: game.status,
+            },
+          }),
+        ]);
+        return;
+      }
+
       const isEndGame = game.status === EJackGameStatus.ENDED;
 
       const {
@@ -605,9 +701,9 @@ export class SenaService {
             guestScore: guestScore.value,
           })
         : gameMessages.playerHitting({
-            guestName,
+            guestName: game.hostName,
             cardCount: hostCards.length - 2,
-            hostName,
+            hostName: game.guestName,
           });
 
       await Promise.all([
