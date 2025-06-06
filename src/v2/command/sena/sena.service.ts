@@ -1,26 +1,27 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from 'src/prisma/prisma.service';
-import { MessageButtonClickedEvent, TokenSentEventI } from './types';
+import { EJackGameStatus, ETransactionType } from '@prisma/client';
 import {
   ChannelMessage,
-  ChannelMessageAck,
   EButtonMessageStyle,
   EMessageComponentType,
+  TokenSentEvent,
 } from 'mezon-sdk';
-import { EJackGameStatus, ETransactionType } from '@prisma/client';
+import { EMessageMode } from 'src/common/enums/mezon.enum';
+import { random } from 'src/common/utils/helper';
+import { PrismaService } from 'src/prisma/prisma.service';
 import { MezonService } from 'src/v2/mezon/mezon.service';
-import { TokenSentEvent } from 'mezon-sdk';
+import { EMessagePayloadType, EMessageType } from 'src/v2/mezon/types/mezon';
 import {
-  gameMessages,
+  DOUBLE_COST_SCORE,
   EMPTY_BALANCE_MESSAGES,
   GAME_RESULT,
+  gameMessages,
   MAX_CARDS,
+  MIN_SCORE,
 } from './constansts';
-import { random } from 'src/common/utils/helper';
-import { EMessageMode } from 'src/common/enums/mezon.enum';
-import { GameMetadata } from './types/game';
 import { Game } from './game';
-import { EMessagePayloadType, EMessageType } from 'src/v2/mezon/types/mezon';
+import { MessageButtonClickedEvent } from './types';
+import { GameMetadata } from './types/game';
 
 const SUITS = ['♠', '♥', '♦', '♣'];
 const RANKS = [
@@ -177,13 +178,39 @@ export class SenaService {
   }
 
   async withdraw(data: ChannelMessage, amount: number) {
+    const isPlayingGame = await this.prisma.blackJackGame.findFirst({
+      where: {
+        OR: [{ hostId: data.sender_id }, { guestId: data.sender_id }],
+        status: {
+          in: [EJackGameStatus.PLAYING, EJackGameStatus.WAITING],
+        },
+      },
+    });
+
+    if (isPlayingGame) {
+      const message =
+        '💸Bạn đang chơi game, không thể rút tiền, tính trốn à?????';
+      await this.mezon.sendMessage({
+        type: EMessageType.CHANNEL,
+        reply_to_message_id: data.message_id,
+        payload: {
+          channel_id: data.channel_id,
+          message: {
+            type: EMessagePayloadType.SYSTEM,
+            content: message,
+          },
+        },
+      });
+      return;
+    }
+
     const userBalance = await this.prisma.userBalance.findUnique({
       where: {
         userId: data.sender_id,
       },
     });
-    if (!userBalance || userBalance.balance < amount || amount < 1000) {
-      const message = `💸Số dư của bạn không đủ để rút hoặc số tiền rút không hợp lệ`;
+    if (!userBalance || userBalance.balance < amount || amount <= 1000) {
+      const message = `💸Số dư của bạn không đủ để rút hoặc số tiền rút không hợp lệ, số tiền phải lớn hơn hoặc bằng 1000`;
       await this.mezon.sendMessage({
         type: EMessageType.CHANNEL,
         reply_to_message_id: data.message_id,
@@ -347,6 +374,8 @@ export class SenaService {
               userName: 'Bạn',
               cardDisplay: cards.map(this.getCardDisplay).join(', '),
               score: this.calculateHandValue(cards),
+              isDoubleAce:
+                cards.length === 2 && cards.every((i) => i % 13 === 0),
             }),
           },
         },
@@ -377,6 +406,8 @@ export class SenaService {
               userName,
               cardDisplay: cards.map(this.getCardDisplay).join(', '),
               score: this.calculateHandValue(cards),
+              isDoubleAce:
+                cards.length === 2 && cards.every((i) => i % 13 === 0),
             }),
           },
         },
@@ -417,12 +448,33 @@ export class SenaService {
 
       game.startGame();
 
-      // game.hostCards = [0, 13]; // Guest starts with 2 cards
+      // game.guestCards = [0, 1, 2, 3]; // Set guest's initial cards to Ace of Spades and 2 of Hearts for test ting
 
-      // const [playerMessage, hostMessage] = await Promise.all([
-      //   this.sendCardMessageToUser(record.guestId, game.guestCards),
-      //   this.sendCardMessageToUser(record.hostId, game.hostCards),
-      // ]);
+      const guestCardsString = game.guestCards
+        .map(this.getCardDisplay)
+        .join(', ');
+
+      const hostCardsString = game.hostCards
+        .map(this.getCardDisplay)
+        .join(', ');
+
+      await Promise.all([
+        this.prisma.blackJackGameLogs.create({
+          data: {
+            gameId: game.id,
+            userId: game.guestId,
+            card: guestCardsString,
+          },
+        }),
+
+        this.prisma.blackJackGameLogs.create({
+          data: {
+            gameId: game.id,
+            userId: game.hostId,
+            card: hostCardsString,
+          },
+        }),
+      ]);
 
       const [playerMessage, hostMessage] = await Promise.all([
         this.sendCardMessageToChannel({
@@ -445,11 +497,13 @@ export class SenaService {
         game.end();
 
         let content: string;
+        await this.updateUserBalanceAfterGame(game, earlyWin);
 
         if (earlyWin === GAME_RESULT.HOST_WIN && game.hostScore.isDoubleAce) {
           content = gameMessages.doubleAce({
             winnerName: game.hostName,
             loserName: game.guestName,
+            cost: game.cost * 3,
           });
         } else if (
           earlyWin === GAME_RESULT.GUEST_WIN &&
@@ -458,6 +512,7 @@ export class SenaService {
           content = gameMessages.doubleAce({
             winnerName: game.guestName,
             loserName: game.hostName,
+            cost: game.cost * 3,
           });
         } else if (
           earlyWin === GAME_RESULT.HOST_WIN &&
@@ -466,6 +521,7 @@ export class SenaService {
           content = gameMessages.blackjack({
             winnerName: game.hostName,
             loserName: game.guestName,
+            cost: game.cost * 2,
           });
         } else if (
           earlyWin === GAME_RESULT.GUEST_WIN &&
@@ -474,6 +530,7 @@ export class SenaService {
           content = gameMessages.blackjack({
             winnerName: game.guestName,
             loserName: game.hostName,
+            cost: game.cost * 2,
           });
         } else {
           content = gameMessages[earlyWin]({
@@ -485,6 +542,7 @@ export class SenaService {
               .map(this.getCardDisplay)
               .join(', '),
             guestScore: game.guestScore.value,
+            cost: game.cost,
           });
         }
 
@@ -531,6 +589,7 @@ export class SenaService {
     const game = new Game(record);
     const turnOf = game.turnOf;
     const isGuestTurn = turnOf === game.guestId;
+
     if (isGuestTurn) {
       game.hitCard();
       const { guestMessageId, guestChannelId } =
@@ -539,48 +598,20 @@ export class SenaService {
         userName: game.guestName,
         cardDisplay: game.guestCards.map(this.getCardDisplay).join(', '),
         score: this.calculateHandValue(game.guestCards),
+        isDoubleAce: game.guestScore.isDoubleAce,
       });
 
-      if (game.isFiveSprits('guest')) {
-        game.end();
+      const cardIndex = game.guestCards[game.guestCards.length - 1];
 
-        const content = gameMessages.fiveSprits({
-          winnerName: game.guestName,
-          loserName: game.hostName,
-        });
+      const cardString = this.getCardDisplay(cardIndex);
 
-        await Promise.all([
-          this.mezon.updateMessage({
-            channel_id: guestChannelId!,
-            message_id: guestMessageId!,
-            content: {
-              type: EMessagePayloadType.SYSTEM,
-              content: playerMessageText,
-            },
-          }),
-
-          this.mezon.updateMessage({
-            channel_id: record.channelId,
-            message_id: record.messageId,
-            content: {
-              type: EMessagePayloadType.SYSTEM,
-              content,
-            },
-          }),
-
-          this.prisma.blackJackGame.update({
-            where: { id: game.id },
-            data: {
-              remainingCards: game.remainingCards,
-              guestCards: game.guestCards,
-              turnOf: game.turnOf,
-              isGuestStand: game.isGuestStand,
-              status: game.status,
-            },
-          }),
-        ]);
-        return;
-      }
+      await this.prisma.blackJackGameLogs.create({
+        data: {
+          gameId: game.id,
+          userId: game.guestId,
+          card: cardString,
+        },
+      });
 
       const isChangeTurn = game.guestCards.length === MAX_CARDS;
 
@@ -638,46 +669,17 @@ export class SenaService {
         score: this.calculateHandValue(game.hostCards),
       });
 
-      if (game.isFiveSprits('host')) {
-        game.end();
+      const cardIndex = game.hostCards[game.hostCards.length - 1];
 
-        const content = gameMessages.fiveSprits({
-          winnerName: game.hostName,
-          loserName: game.guestName,
-        });
+      const cardString = this.getCardDisplay(cardIndex);
 
-        await Promise.all([
-          this.mezon.updateMessage({
-            channel_id: hostChannelId!,
-            message_id: hostMessageId!,
-            content: {
-              type: EMessagePayloadType.SYSTEM,
-              content: hostMessageText,
-            },
-          }),
-
-          this.mezon.updateMessage({
-            channel_id: record.channelId,
-            message_id: record.messageId,
-            content: {
-              type: EMessagePayloadType.SYSTEM,
-              content,
-            },
-          }),
-
-          this.prisma.blackJackGame.update({
-            where: { id: game.id },
-            data: {
-              remainingCards: game.remainingCards,
-              guestCards: game.guestCards,
-              turnOf: game.turnOf,
-              isGuestStand: game.isGuestStand,
-              status: game.status,
-            },
-          }),
-        ]);
-        return;
-      }
+      await this.prisma.blackJackGameLogs.create({
+        data: {
+          gameId: game.id,
+          userId: game.hostId,
+          card: cardString,
+        },
+      });
 
       const isEndGame = game.status === EJackGameStatus.ENDED;
 
@@ -699,6 +701,7 @@ export class SenaService {
             guestName,
             guestCardDisplay: guestCards.map(this.getCardDisplay).join(', '),
             guestScore: guestScore.value,
+            cost: game.cost,
           })
         : gameMessages.playerHitting({
             guestName: game.hostName,
@@ -749,12 +752,48 @@ export class SenaService {
         status: EJackGameStatus.PLAYING,
       },
     });
+
     if (!record) return;
     if (record.turnOf != userId) return;
 
     if (record.hostId != userId && record.guestId != userId) return;
 
     const game = new Game(record);
+
+    const isHost = userId === game.hostId;
+    const score = isHost
+      ? this.calculateHandValue(game.hostCards)
+      : this.calculateHandValue(game.guestCards);
+
+    if (score < MIN_SCORE) {
+      const message = `Điểm của bạn là ${score}, không thể dừng lại. Bạn phải rút thêm bài. Rút mạnh đê bạn sợ à?`;
+      await this.mezon.updateMessage({
+        channel_id: record.channelId,
+        message_id: record.messageId,
+        content: {
+          type: EMessagePayloadType.OPTIONAL,
+          content: {
+            t: message,
+            components: [
+              {
+                components: [
+                  {
+                    id: ButtonKey.HIT,
+                    type: EMessageComponentType.BUTTON,
+                    component: {
+                      label: 'Rút',
+                      style: EButtonMessageStyle.SUCCESS,
+                    },
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      });
+      return;
+    }
+
     game.stand();
     const {
       hostName,
@@ -767,21 +806,97 @@ export class SenaService {
       status,
     } = game;
 
+    const bothStand = game.isHostStand && game.isGuestStand;
+
+    if (bothStand) {
+      const guestFive = game.isFiveSprits('guest');
+      const hostFive = game.isFiveSprits('host');
+
+      let systemMessageText = '';
+      if (guestFive && hostFive) {
+        game.end();
+        await this.updateUserBalanceAfterGame(game, GAME_RESULT.DRAW);
+        systemMessageText = `Cả ${guestName} và ${hostName} đều ngũ linh. HÒA!`;
+      } else if (guestFive) {
+        game.end();
+        await this.updateUserBalanceAfterGame(game, GAME_RESULT.GUEST_WIN);
+        systemMessageText = gameMessages.fiveSprits({
+          winnerName: guestName,
+          loserName: hostName,
+          cost: game.cost * 2,
+        });
+      } else if (hostFive) {
+        game.end();
+        await this.updateUserBalanceAfterGame(game, GAME_RESULT.HOST_WIN);
+        systemMessageText = gameMessages.fiveSprits({
+          winnerName: hostName,
+          loserName: guestName,
+          cost: game.cost * 2,
+        });
+      }
+
+      if (systemMessageText) {
+        await Promise.all([
+          this.mezon.updateMessage({
+            channel_id: record.channelId,
+            message_id: record.messageId,
+            content: {
+              type: EMessagePayloadType.SYSTEM,
+              content: systemMessageText,
+            },
+          }),
+          this.prisma.blackJackGame.update({
+            where: { id: game.id },
+            data: {
+              status: game.status,
+              turnOf: game.turnOf,
+              isGuestStand: game.isGuestStand,
+              isHostStand: game.isHostStand,
+            },
+          }),
+        ]);
+        return;
+      }
+    }
+
     const isEnded = status === EJackGameStatus.ENDED;
 
-    const systemMessageText = isEnded
-      ? gameMessages[result]({
+    let systemMessageText = '';
+    if (isEnded) {
+      await this.updateUserBalanceAfterGame(game, result);
+      if (
+        hostScore.value >= DOUBLE_COST_SCORE &&
+        guestScore.value < DOUBLE_COST_SCORE
+      ) {
+        systemMessageText = gameMessages.overScoreDoubleCost({
+          loserName: hostName,
+          cost: game.cost * 2,
+        });
+      } else if (
+        guestScore.value >= DOUBLE_COST_SCORE &&
+        hostScore.value < DOUBLE_COST_SCORE
+      ) {
+        systemMessageText = gameMessages.overScoreDoubleCost({
+          loserName: guestName,
+          cost: game.cost * 2,
+        });
+      } else {
+        systemMessageText = gameMessages[result]({
           hostName,
           hostCardDisplay: hostCards.map(this.getCardDisplay).join(', '),
           hostScore: hostScore.value,
           guestName,
           guestCardDisplay: guestCards.map(this.getCardDisplay).join(', '),
           guestScore: guestScore.value,
-        })
-      : gameMessages.guestPlayerStood({
-          hostName,
-          guestName,
+          cost: game.cost,
         });
+      }
+    } else {
+      systemMessageText = gameMessages.guestPlayerStood({
+        hostName,
+        guestName,
+      });
+    }
 
     await Promise.all([
       this.mezon.updateMessage({
@@ -813,7 +928,7 @@ export class SenaService {
     return `${rank}${suit}`;
   };
 
-  public async createDeck(data: ChannelMessage) {
+  public async createDeck(data: ChannelMessage, amount: number) {
     let partnerId: string | undefined;
     let parterName: string | undefined;
     if (data.content.t?.includes('@')) {
@@ -822,6 +937,8 @@ export class SenaService {
         const m = data.content.t.split(' ');
         partnerId = mention.user_id;
         parterName = m[1].slice(1);
+        amount = Number(m[2]);
+        if (isNaN(amount)) return;
       }
     } else {
       partnerId = data.references?.[0]?.message_sender_id;
@@ -896,6 +1013,83 @@ export class SenaService {
 
     await delay(1000);
 
+    if (amount < 0 || amount > 1000000 || isNaN(amount)) {
+      const message = `😅Số tiền cược không hợp lệ. Vui lòng nhập số tiền từ 0 đến 1.000.000 token`;
+      await this.mezon.updateMessage({
+        channel_id: promiseMessage.channel_id,
+        message_id: promiseMessage.message_id,
+        content: {
+          type: EMessagePayloadType.SYSTEM,
+          content: message,
+        },
+      });
+      return;
+    }
+
+    const partnerBalance = await this.prisma.userBalance.findUnique({
+      where: {
+        userId: partnerId,
+      },
+    });
+
+    let pBalance: any;
+    if (!partnerBalance) {
+      pBalance = await this.prisma.userBalance.create({
+        data: {
+          userId: partnerId,
+          balance: 0,
+          username: parterName!,
+        },
+      });
+    } else {
+      pBalance = partnerBalance;
+    }
+
+    if (pBalance.balance < amount * 3) {
+      const message = `😅Số dư của đối thủ không đủ để cược ${amount} token (phải ≥ ${amount * 3} token để phòng trường hợp x3). Vui lòng chọn số tiền nhỏ hơn hoặc bằng ${Math.floor(pBalance.balance / 3)} token`;
+      await this.mezon.updateMessage({
+        channel_id: promiseMessage.channel_id,
+        message_id: promiseMessage.message_id,
+        content: {
+          type: EMessagePayloadType.SYSTEM,
+          content: message,
+        },
+      });
+      return;
+    }
+
+    const myBalance = await this.prisma.userBalance.findUnique({
+      where: {
+        userId: data.sender_id,
+      },
+    });
+
+    let mBalance: any;
+    if (!myBalance) {
+      mBalance = await this.prisma.userBalance.create({
+        data: {
+          userId: data.sender_id,
+          balance: 0,
+          username: data.username!,
+        },
+      });
+    } else {
+      mBalance = myBalance;
+    }
+
+    if (mBalance.balance < amount * 3) {
+      const message = `😅Số dư của bạn không đủ để cược ${amount} token (phải ≥ ${amount * 3} token để phòng trường hợp x3). Vui lòng chọn số tiền nhỏ hơn hoặc bằng ${Math.floor(mBalance.balance / 3)} token`;
+      await this.mezon.updateMessage({
+        channel_id: promiseMessage.channel_id,
+        message_id: promiseMessage.message_id,
+        content: {
+          type: EMessagePayloadType.SYSTEM,
+          content: message,
+        },
+      });
+      return;
+    }
+
     await Promise.all([
       this.mezon.updateMessage({
         channel_id: promiseMessage.channel_id,
@@ -903,7 +1097,7 @@ export class SenaService {
         content: {
           type: EMessagePayloadType.OPTIONAL,
           content: {
-            t: `Xì rách giữa ${data.username} và ${parterName}\n💰. Đồng ý = click lên phím "36"`,
+            t: `Xì rách giữa ${data.username} và ${parterName}\n💰Cược ${amount} token. Đồng ý = click lên phím "36"`,
             components: this.createGameButtons(),
           },
         },
@@ -913,7 +1107,7 @@ export class SenaService {
           status: EJackGameStatus.WAITING,
           hostId: data.sender_id,
           guestId: partnerId,
-          cost: 0,
+          cost: amount,
           channelId: promiseMessage.channel_id,
           messageId: promiseMessage.message_id,
           clanId: data.clan_id!,
@@ -945,5 +1139,81 @@ export class SenaService {
       aceCount--;
     }
     return total;
+  }
+
+  private checkGuestOrHostHit(game: Game, userId: string) {
+    const cardIndex = game.hitCard.length - 1;
+
+    const cardString = this.getCardDisplay(cardIndex);
+
+    this.prisma.blackJackGameLogs.create({
+      data: {
+        gameId: game.id,
+        userId: userId,
+        card: cardString,
+      },
+    });
+  }
+
+  private getRewardMultiplier(game: Game, result: GAME_RESULT): number {
+    const hostScore = game.hostScore.value;
+    const guestScore = game.guestScore.value;
+
+    if (result === GAME_RESULT.HOST_WIN) {
+      if (game.hostScore.isDoubleAce) return 3;
+      if (
+        game.hostScore.isBlackjack ||
+        game.hostScore.isFiveSprits ||
+        hostScore >= DOUBLE_COST_SCORE ||
+        guestScore >= DOUBLE_COST_SCORE
+      )
+        return 2;
+      return 1;
+    }
+
+    if (result === GAME_RESULT.GUEST_WIN) {
+      if (game.guestScore.isDoubleAce) return 3;
+      if (
+        game.guestScore.isBlackjack ||
+        game.guestScore.isFiveSprits ||
+        hostScore >= DOUBLE_COST_SCORE ||
+        guestScore >= DOUBLE_COST_SCORE
+      )
+        return 2;
+      return 1;
+    }
+
+    return 0;
+  }
+
+  private async updateUserBalanceAfterGame(game: Game, result: GAME_RESULT) {
+    const multiplier = this.getRewardMultiplier(game, result);
+    let hostReward = 0;
+    let guestReward = 0;
+
+    const reward = game.cost * multiplier;
+    if (result === GAME_RESULT.HOST_WIN) {
+      hostReward = reward;
+      guestReward = -reward;
+    } else if (result === GAME_RESULT.GUEST_WIN) {
+      hostReward = -reward;
+      guestReward = reward;
+    }
+
+    try {
+      await Promise.all([
+        this.prisma.userBalance.update({
+          where: { userId: game.hostId },
+          data: { balance: { increment: hostReward } },
+        }),
+        this.prisma.userBalance.update({
+          where: { userId: game.guestId },
+          data: { balance: { increment: guestReward } },
+        }),
+      ]);
+      console.log('Balance updated successfully');
+    } catch (err) {
+      console.error('Error updating balance:', err);
+    }
   }
 }

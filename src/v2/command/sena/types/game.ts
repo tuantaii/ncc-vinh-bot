@@ -9,3 +9,10 @@ interface GameMetadata {
 }
 
 export type { GameMetadata };
+
+export type BLACKJACK_GAME_LOGS = {
+  id: number;
+  game_id: number;
+  user_id: string;
+  card: string;
+};

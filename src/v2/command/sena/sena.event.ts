@@ -10,12 +10,13 @@ import {
   WITHDRAW_COMMAND,
   PLAY_COMMAND,
 } from './constansts';
+import { EMessagePayloadType, EMessageType } from 'src/v2/mezon/types/mezon';
 
 @Injectable()
 export class SenaEvent {
   constructor(
     private readonly senaService: SenaService,
-    private readonly _: MezonService,
+    private readonly mezon: MezonService,
   ) {}
 
   @OnEvent(Events.TokenSend)
@@ -34,8 +35,10 @@ export class SenaEvent {
 
   @OnEvent(Events.ChannelMessage)
   async handleChannelMessageButtonClicked(data: ChannelMessage) {
-    if (data.content.t === PLAY_COMMAND) {
-      await this.senaService.createDeck(data);
+    if (data.content.t?.startsWith(PLAY_COMMAND)) {
+      const numberInString = data.content.t.match(/\d+/);
+      const amount = numberInString ? parseInt(numberInString[0]) : 0;
+      await this.senaService.createDeck(data, amount);
     } else if (data.content.t?.startsWith(WITHDRAW_COMMAND)) {
       const numberInString = data.content.t.match(/\d+/);
       if (numberInString) {

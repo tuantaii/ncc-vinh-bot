@@ -12,6 +12,7 @@ export const EMPTY_BALANCE_MESSAGES = [
 
 export const MAX_CARDS = 5;
 export const MAX_SCORE = 21;
+export const MIN_SCORE = 16;
 export const DOUBLE_COST_SCORE = 26;
 
 export enum GAME_RESULT {
@@ -28,8 +29,12 @@ export const gameMessages = {
     guestName: string;
     guestCardDisplay: string;
     guestScore: number;
+    cost: number;
   }) =>
-    `Cả 2 đã dằn.\nBài của ${data.hostName} là ${data.hostCardDisplay} => Tổng: ${data.hostScore}.\nBài của ${data.guestName} là ${data.guestCardDisplay} => Tổng: ${data.guestScore}.\nKết quả: ${data.hostName} thắng`,
+    `Cả 2 đã dằn.
+    Bài của ${data.hostName} là ${data.hostCardDisplay} => Tổng: ${data.hostScore}.
+    Bài của ${data.guestName} là ${data.guestCardDisplay} => Tổng: ${data.guestScore}.
+    Kết quả: ${data.hostName} thắng và nhận được ${data.cost} token`,
   [GAME_RESULT.GUEST_WIN]: (data: {
     hostName: string;
     hostCardDisplay: string;
@@ -37,8 +42,12 @@ export const gameMessages = {
     guestName: string;
     guestCardDisplay: string;
     guestScore: number;
+    cost: number;
   }) =>
-    `Cả 2 đã dằn.\nBài của ${data.hostName} là ${data.hostCardDisplay} => Tổng: ${data.hostScore}.\nBài của ${data.guestName} là ${data.guestCardDisplay} => Tổng: ${data.guestScore}.\nKết quả: ${data.hostName} thắng`,
+    `Cả 2 đã dằn.
+    Bài của ${data.hostName} là ${data.hostCardDisplay} => Tổng: ${data.hostScore}.
+    Bài của ${data.guestName} là ${data.guestCardDisplay} => Tổng: ${data.guestScore}.
+    Kết quả: ${data.guestName} thắng và nhận được ${data.cost} token`,
   guestPlayerStood: (data: { hostName: string; guestName: string }) =>
     `${data.guestName} đã dằn, tới lượt ${data.hostName}.`,
   playerHitting: (data: {
@@ -50,15 +59,24 @@ export const gameMessages = {
       ? `${data.guestName} đã dằn, ${data.hostName} đang rút ${data.cardCount} lá bài.`
       : `${data.guestName} đang rút ${data.cardCount} lá bài.`,
 
-  userHand: (data: { userName: string; cardDisplay: string; score: number }) =>
-    `Bài của ${data.userName} là ${data.cardDisplay}, Tổng điểm là ${data.score}`,
+  userHand: (data: {
+    userName: string;
+    cardDisplay: string;
+    score: number;
+    isDoubleAce?: boolean;
+  }) =>
+    data.isDoubleAce
+      ? `Bài của ${data.userName} là ${data.cardDisplay} 👉 XÌ BÀNNNNNNN làm bố tất cả`
+      : `Bài của ${data.userName} là ${data.cardDisplay}, Tổng điểm là ${data.score}`,
 
-  blackjack: (data: { winnerName: string; loserName: string }) =>
-    `${data.winnerName} được Xì Jack, ${data.loserName} thua. x2 money.`,
-  doubleAce: (data: { winnerName: string; loserName: string }) =>
-    `${data.winnerName} được Xì Bàng, ${data.loserName} thua. x3 money.`,
-  fiveSprits: (data: { winnerName: string; loserName: string }) =>
-    `${data.winnerName} được ngũ linh, ${data.loserName} thua. x2 money.`,
+  overScoreDoubleCost: (data: { loserName: string; cost: number }) =>
+    `${data.loserName} ngoắc cần câu, cháy trên ${DOUBLE_COST_SCORE} điểm thua x2 tiền, bay ${data.cost} token`,
+  blackjack: (data: { winnerName: string; loserName: string; cost: number }) =>
+    `${data.winnerName} được Xì Jack, ${data.loserName} thua. x2 money. lụm ${data.cost} token`,
+  doubleAce: (data: { winnerName: string; loserName: string; cost: number }) =>
+    `${data.winnerName} được Xì Bàng, ${data.loserName} thua. x3 money. lụm ${data.cost} token`,
+  fiveSprits: (data: { winnerName: string; loserName: string; cost: number }) =>
+    `${data.winnerName} được ngũ linh, ${data.loserName} thua. x2 money. lụm ${data.cost} token`,
   [GAME_RESULT.DRAW]: (data: {
     hostName: string;
     hostCardDisplay: string;
