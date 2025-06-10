@@ -9,6 +9,7 @@ import { RedisModule } from './core/redis/redis.module';
 import { MainV2Module } from './v2/main.module';
 import { BotModule } from './v2/bot/bot.module';
 import { SenaModule } from './v2/command/sena/sena.module';
+import { SenaLogsModule } from './v2/command/message_logs/message-logs.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { SenaModule } from './v2/command/sena/sena.module';
     MainV2Module,
     BotModule,
     SenaModule,
+    SenaLogsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

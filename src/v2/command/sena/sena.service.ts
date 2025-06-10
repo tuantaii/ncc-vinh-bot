@@ -11,11 +11,13 @@ import { random } from 'src/common/utils/helper';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { MezonService } from 'src/v2/mezon/mezon.service';
 import { EMessagePayloadType, EMessageType } from 'src/v2/mezon/types/mezon';
+import { v4 as uuidv4 } from 'uuid';
 import {
   DOUBLE_COST_SCORE,
   EMPTY_BALANCE_MESSAGES,
   GAME_RESULT,
   gameMessages,
+  HDSD,
   MAX_CARDS,
   MIN_SCORE,
 } from './constansts';
@@ -45,6 +47,7 @@ export enum ButtonKey {
   STAND = 'stand',
   RUN = 'run',
   AGREE = 'agree',
+  CANCEL = 'cancel',
 }
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -209,7 +212,7 @@ export class SenaService {
         userId: data.sender_id,
       },
     });
-    if (!userBalance || userBalance.balance < amount || amount <= 1000) {
+    if (!userBalance || userBalance.balance < amount || amount < 1000) {
       const message = `💸Số dư của bạn không đủ để rút hoặc số tiền rút không hợp lệ, số tiền phải lớn hơn hoặc bằng 1000`;
       await this.mezon.sendMessage({
         type: EMessageType.CHANNEL,
@@ -224,7 +227,7 @@ export class SenaService {
       });
     } else {
       //check
-
+      const transactionId = uuidv4();
       await this.prisma.$transaction(async (tx) => {
         await tx.userBalance.update({
           where: {
@@ -241,6 +244,7 @@ export class SenaService {
             userId: data.sender_id,
             amount: amount,
             type: ETransactionType.WITHDRAW,
+            transactionId,
           },
         });
       });
@@ -284,6 +288,14 @@ export class SenaService {
               style: EButtonMessageStyle.DANGER,
             },
           },
+          {
+            id: ButtonKey.CANCEL,
+            type: EMessageComponentType.BUTTON,
+            component: {
+              label: 'Hủy',
+              style: EButtonMessageStyle.SECONDARY,
+            },
+          },
         ],
       },
     ];
@@ -324,6 +336,8 @@ export class SenaService {
         return this.handleStandButton(data);
       case ButtonKey.RUN.toString():
         return this.handleRunButton(data);
+      case ButtonKey.CANCEL.toString():
+        return this.handleCancelButton(data);
     }
   }
 
@@ -361,22 +375,63 @@ export class SenaService {
     });
   }
 
-  async sendCardMessageToUser(userId: string, cards: number[]) {
+  async handleCancelButton(data: MessageButtonClickedEvent) {
+    const { message_id: messageId, user_id: userId } = data;
+    const record = await this.prisma.blackJackGame.findFirst({
+      where: {
+        messageId,
+        status: EJackGameStatus.WAITING,
+      },
+    });
+
+    if (!record) return;
+    if (record.hostId != userId) return;
+    const game = new Game(record);
+    game.end();
+
+    const message = `💸${game.hostName} Lừa thôi không chơi đâu, chôn Vi en.`;
+    await this.mezon.updateMessage({
+      channel_id: record.channelId,
+      message_id: record.messageId,
+      content: {
+        type: EMessagePayloadType.SYSTEM,
+        content: message,
+      },
+    });
+
+    await this.prisma.blackJackGame.update({
+      where: { id: game.id },
+      data: {
+        status: EJackGameStatus.ENDED,
+        turnOf: game.turnOf,
+        isHostStand: game.isHostStand,
+        isGuestStand: game.isGuestStand,
+      },
+    });
+  }
+
+  async sendCardMessageToUser(
+    userId: string,
+    cards: number[],
+    opponentName?: string,
+  ) {
     try {
+      const partner = opponentName ? `\nĐối thủ của bạn: ${opponentName}` : '';
       const sentMessage = await this.mezon.sendMessage({
         type: EMessageType.DM,
         payload: {
           clan_id: '0',
           user_id: userId,
           message: {
-            type: EMessagePayloadType.NORMAL_TEXT,
-            content: gameMessages.userHand({
-              userName: 'Bạn',
-              cardDisplay: cards.map(this.getCardDisplay).join(', '),
-              score: this.calculateHandValue(cards),
-              isDoubleAce:
-                cards.length === 2 && cards.every((i) => i % 13 === 0),
-            }),
+            type: EMessagePayloadType.SYSTEM,
+            content:
+              gameMessages.userHand({
+                userName: 'Bạn',
+                cardDisplay: cards.map(this.getCardDisplay).join(', '),
+                score: this.calculateHandValue(cards),
+                isDoubleAce:
+                  cards.length === 2 && cards.every((i) => i % 13 === 0),
+              }) + partner,
           },
         },
       });
@@ -448,7 +503,7 @@ export class SenaService {
 
       game.startGame();
 
-      // game.guestCards = [0, 1, 2, 3]; // Set guest's initial cards to Ace of Spades and 2 of Hearts for test ting
+      // game.guestCards = [0, 13]; // Set guest's initial cards to Ace of Spades and 2 of Hearts for test ting
 
       const guestCardsString = game.guestCards
         .map(this.getCardDisplay)
@@ -476,19 +531,28 @@ export class SenaService {
         }),
       ]);
 
+      // const [playerMessage, hostMessage] = await Promise.all([
+      //   this.sendCardMessageToChannel({
+      //     channelId: record.channelId,
+      //     userName: record.guestName,
+      //     cards: game.guestCards,
+      //     messageId: record.messageId,
+      //   }),
+      //   this.sendCardMessageToChannel({
+      //     channelId: record.channelId,
+      //     userName: record.hostName,
+      //     cards: game.hostCards,
+      //     messageId: record.messageId,
+      //   }),
+      // ]);
+
       const [playerMessage, hostMessage] = await Promise.all([
-        this.sendCardMessageToChannel({
-          channelId: record.channelId,
-          userName: record.guestName,
-          cards: game.guestCards,
-          messageId: record.messageId,
-        }),
-        this.sendCardMessageToChannel({
-          channelId: record.channelId,
-          userName: record.hostName,
-          cards: game.hostCards,
-          messageId: record.messageId,
-        }),
+        this.sendCardMessageToUser(
+          game.guestId,
+          game.guestCards,
+          game.hostName,
+        ),
+        this.sendCardMessageToUser(game.hostId, game.hostCards, game.guestName),
       ]);
 
       const earlyWin = game.calculateEarlyWin();
@@ -594,12 +658,13 @@ export class SenaService {
       game.hitCard();
       const { guestMessageId, guestChannelId } =
         record.metadata as GameMetadata;
-      const playerMessageText = gameMessages.userHand({
-        userName: game.guestName,
-        cardDisplay: game.guestCards.map(this.getCardDisplay).join(', '),
-        score: this.calculateHandValue(game.guestCards),
-        isDoubleAce: game.guestScore.isDoubleAce,
-      });
+      const playerMessageText =
+        gameMessages.userHand({
+          userName: game.guestName,
+          cardDisplay: game.guestCards.map(this.getCardDisplay).join(', '),
+          score: this.calculateHandValue(game.guestCards),
+          isDoubleAce: game.guestScore.isDoubleAce,
+        }) + `Đối thủ của bạn: ${game.hostName}`;
 
       const cardIndex = game.guestCards[game.guestCards.length - 1];
 
@@ -663,11 +728,12 @@ export class SenaService {
     } else {
       game.hitCard();
       const { hostMessageId, hostChannelId } = record.metadata as GameMetadata;
-      const hostMessageText = gameMessages.userHand({
-        userName: game.hostName,
-        cardDisplay: game.hostCards.map(this.getCardDisplay).join(', '),
-        score: this.calculateHandValue(game.hostCards),
-      });
+      const hostMessageText =
+        gameMessages.userHand({
+          userName: game.hostName,
+          cardDisplay: game.hostCards.map(this.getCardDisplay).join(', '),
+          score: this.calculateHandValue(game.hostCards),
+        }) + `Đối thủ của bạn: ${game.guestName}`;
 
       const cardIndex = game.hostCards[game.hostCards.length - 1];
 
@@ -766,7 +832,7 @@ export class SenaService {
       : this.calculateHandValue(game.guestCards);
 
     if (score < MIN_SCORE) {
-      const message = `Điểm của bạn là ${score}, không thể dừng lại. Bạn phải rút thêm bài. Rút mạnh đê bạn sợ à?`;
+      const message = `Điểm của bạn chưa đủ để dằn. Rút mạnh đê bạn sợ à?`;
       await this.mezon.updateMessage({
         channel_id: record.channelId,
         message_id: record.messageId,
@@ -791,6 +857,13 @@ export class SenaService {
           },
         },
       });
+
+      const cards = isHost ? game.hostCards : game.guestCards;
+      await this.sendCardMessageToUser(
+        userId,
+        cards,
+        isHost ? game.guestName : game.hostName,
+      );
       return;
     }
 
@@ -891,6 +964,18 @@ export class SenaService {
           cost: game.cost,
         });
       }
+
+      await this.mezon.sendMessage({
+        type: EMessageType.CHANNEL,
+        reply_to_message_id: record.messageId,
+        payload: {
+          channel_id: record.channelId,
+          message: {
+            type: EMessagePayloadType.SYSTEM,
+            content: `🎲 Kết quả cuối cùng của ván bài giữa: ${game.hostName} và ${game.guestName} là: \n${systemMessageText}`,
+          },
+        },
+      });
     } else {
       systemMessageText = gameMessages.guestPlayerStood({
         hostName,
@@ -1026,38 +1111,6 @@ export class SenaService {
       return;
     }
 
-    const partnerBalance = await this.prisma.userBalance.findUnique({
-      where: {
-        userId: partnerId,
-      },
-    });
-
-    let pBalance: any;
-    if (!partnerBalance) {
-      pBalance = await this.prisma.userBalance.create({
-        data: {
-          userId: partnerId,
-          balance: 0,
-          username: parterName!,
-        },
-      });
-    } else {
-      pBalance = partnerBalance;
-    }
-
-    if (pBalance.balance < amount * 3) {
-      const message = `😅Số dư của đối thủ không đủ để cược ${amount} token (phải ≥ ${amount * 3} token để phòng trường hợp x3). Vui lòng chọn số tiền nhỏ hơn hoặc bằng ${Math.floor(pBalance.balance / 3)} token`;
-      await this.mezon.updateMessage({
-        channel_id: promiseMessage.channel_id,
-        message_id: promiseMessage.message_id,
-        content: {
-          type: EMessagePayloadType.SYSTEM,
-          content: message,
-        },
-      });
-      return;
-    }
-
     const myBalance = await this.prisma.userBalance.findUnique({
       where: {
         userId: data.sender_id,
@@ -1078,7 +1131,39 @@ export class SenaService {
     }
 
     if (mBalance.balance < amount * 3) {
-      const message = `😅Số dư của bạn không đủ để cược ${amount} token (phải ≥ ${amount * 3} token để phòng trường hợp x3). Vui lòng chọn số tiền nhỏ hơn hoặc bằng ${Math.floor(mBalance.balance / 3)} token`;
+      const message = `😅Số dư của bạn không đủ để cược ${amount} token (phải ≥ ${amount * 3} token để phòng trường hợp x3)`;
+      await this.mezon.updateMessage({
+        channel_id: promiseMessage.channel_id,
+        message_id: promiseMessage.message_id,
+        content: {
+          type: EMessagePayloadType.SYSTEM,
+          content: message,
+        },
+      });
+      return;
+    }
+
+    const partnerBalance = await this.prisma.userBalance.findUnique({
+      where: {
+        userId: partnerId,
+      },
+    });
+
+    let pBalance: any;
+    if (!partnerBalance) {
+      pBalance = await this.prisma.userBalance.create({
+        data: {
+          userId: partnerId,
+          balance: 0,
+          username: parterName!,
+        },
+      });
+    } else {
+      pBalance = partnerBalance;
+    }
+
+    if (pBalance.balance < amount * 3) {
+      const message = `😅Số dư của đối thủ không đủ để cược ${amount} token (phải ≥ ${amount * 3} token để phòng trường hợp x3)`;
       await this.mezon.updateMessage({
         channel_id: promiseMessage.channel_id,
         message_id: promiseMessage.message_id,
@@ -1188,10 +1273,11 @@ export class SenaService {
 
   private async updateUserBalanceAfterGame(game: Game, result: GAME_RESULT) {
     const multiplier = this.getRewardMultiplier(game, result);
+    const reward = game.cost * multiplier;
+
     let hostReward = 0;
     let guestReward = 0;
 
-    const reward = game.cost * multiplier;
     if (result === GAME_RESULT.HOST_WIN) {
       hostReward = reward;
       guestReward = -reward;
@@ -1201,7 +1287,7 @@ export class SenaService {
     }
 
     try {
-      await Promise.all([
+      const balancePromises = [
         this.prisma.userBalance.update({
           where: { userId: game.hostId },
           data: { balance: { increment: hostReward } },
@@ -1210,10 +1296,259 @@ export class SenaService {
           where: { userId: game.guestId },
           data: { balance: { increment: guestReward } },
         }),
-      ]);
-      console.log('Balance updated successfully');
+      ];
+
+      const logPromises: Promise<any>[] = [];
+
+      if (result === GAME_RESULT.HOST_WIN) {
+        logPromises.push(
+          this.prisma.transactionSendLogs.create({
+            data: {
+              userId: game.hostId,
+              toUserId: game.guestId,
+              amount: reward,
+              note: 'win blackjack',
+            },
+          }),
+        );
+      } else if (result === GAME_RESULT.GUEST_WIN) {
+        logPromises.push(
+          this.prisma.transactionSendLogs.create({
+            data: {
+              userId: game.guestId,
+              toUserId: game.hostId,
+              amount: reward,
+              note: 'win blackjack',
+            },
+          }),
+        );
+      }
+
+      await Promise.all([...balancePromises, ...logPromises]);
+      console.log('✅ Balance updated and win log recorded');
     } catch (err) {
-      console.error('Error updating balance:', err);
+      console.error('❌ Error updating balance or logging win:', err);
     }
+  }
+
+  async checkTransaction(data: ChannelMessage) {
+    const m = data.content.t?.split(' ') || [];
+    const transactionId = m[1];
+    if (!transactionId) {
+      await this.mezon.sendMessage({
+        type: EMessageType.CHANNEL,
+        reply_to_message_id: data.message_id,
+        payload: {
+          channel_id: data.channel_id,
+          message: {
+            type: EMessagePayloadType.SYSTEM,
+            content:
+              'Vui lòng nhập transaction Id cần kiểm tra. Ví dụ: *logs <transaction Id>',
+          },
+        },
+      });
+      return;
+    }
+
+    try {
+      const transaction = await this.prisma.transactionLogs.findFirst({
+        where: { transactionId },
+      });
+
+      let content = ' ';
+      if (transaction) {
+        const user = await this.prisma.userBalance.findUnique({
+          where: { userId: transaction.userId },
+        });
+        content = `TransactionLogs: 
+      - User: ${user?.username || 'Không tìm thấy người dùng'}
+      - Amount: ${transaction.amount}
+      - Created At: ${transaction.createdAt.toLocaleDateString('vi-VN')}
+      - Type: ${transaction.type}`;
+      } else {
+        content = `Không tìm thấy transaction với ID: ${transactionId}`;
+      }
+
+      await this.mezon.sendMessage({
+        type: EMessageType.CHANNEL,
+        reply_to_message_id: data.message_id,
+        payload: {
+          channel_id: data.channel_id,
+          message: {
+            type: EMessagePayloadType.SYSTEM,
+            content,
+          },
+        },
+      });
+    } catch (error) {
+      console.error('Error checking transaction:', error);
+      await this.mezon.sendMessage({
+        type: EMessageType.CHANNEL,
+        reply_to_message_id: data.message_id,
+        payload: {
+          channel_id: data.channel_id,
+          message: {
+            type: EMessagePayloadType.SYSTEM,
+            content:
+              'Đã xảy ra lỗi khi kiểm tra transaction. Vui lòng thử lại sau.',
+          },
+        },
+      });
+    }
+  }
+
+  async checkTransactionSend(data: ChannelMessage) {
+    const m = data.content.t?.split(' ') || [];
+    const transactionId = m[1];
+
+    if (!transactionId) {
+      await this.mezon.sendMessage({
+        type: EMessageType.CHANNEL,
+        reply_to_message_id: data.message_id,
+        payload: {
+          channel_id: data.channel_id,
+          message: {
+            type: EMessagePayloadType.SYSTEM,
+            content:
+              'Vui lòng nhập transaction Id cần kiểm tra. Ví dụ: *lsend <transaction Id>',
+          },
+        },
+      });
+      return;
+    }
+
+    try {
+      const transactionSend = await this.prisma.transactionSendLogs.findFirst({
+        where: { id: Number(transactionId) },
+      });
+
+      let content = '';
+
+      if (!transactionSend) {
+        await this.mezon.sendMessage({
+          type: EMessageType.CHANNEL,
+          reply_to_message_id: data.message_id,
+          payload: {
+            channel_id: data.channel_id,
+            message: {
+              type: EMessagePayloadType.SYSTEM,
+              content: `Không tìm thấy transaction send với ID: ${transactionId}`,
+            },
+          },
+        });
+        return;
+      } else {
+        const fromUser = await this.prisma.userBalance.findUnique({
+          where: { userId: transactionSend.userId },
+        });
+        const toUser = await this.prisma.userBalance.findUnique({
+          where: { userId: transactionSend.toUserId },
+        });
+
+        content = `TransactionSendLogs:
+          - From: ${transactionSend.userId} (${fromUser?.username || 'unknown'})
+          - To: ${transactionSend.toUserId} (${toUser?.username || 'unknown'})
+          - Amount: ${transactionSend.amount}
+          - Note: ${transactionSend.note}
+          - Created At: ${transactionSend.createdAt.toLocaleDateString('vi-VN')}`;
+      }
+
+      if (!content) {
+        content = `Không tìm thấy transaction với ID: ${transactionId}`;
+      }
+
+      await this.mezon.sendMessage({
+        type: EMessageType.CHANNEL,
+        reply_to_message_id: data.message_id,
+        payload: {
+          channel_id: data.channel_id,
+          message: {
+            type: EMessagePayloadType.SYSTEM,
+            content,
+          },
+        },
+      });
+    } catch (error) {
+      console.error('Error checking transaction send:', error);
+      await this.mezon.sendMessage({
+        type: EMessageType.CHANNEL,
+        reply_to_message_id: data.message_id,
+        payload: {
+          channel_id: data.channel_id,
+          message: {
+            type: EMessagePayloadType.SYSTEM,
+            content:
+              'Đã xảy ra lỗi khi kiểm tra transaction gửi. Vui lòng thử lại sau.',
+          },
+        },
+      });
+    }
+  }
+
+  async handleTop10(data: ChannelMessage) {
+    const placeholder = await this.mezon.sendMessage({
+      type: EMessageType.CHANNEL,
+      clan_id: data.clan_id,
+      payload: {
+        channel_id: data.channel_id,
+        message: {
+          type: EMessagePayloadType.SYSTEM,
+          content: 'Đang lấy danh sách top 10 người thắng xì rách...',
+        },
+      },
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    const topWinners = await this.prisma.transactionSendLogs.groupBy({
+      by: ['userId'],
+      where: {
+        amount: { gt: 0 },
+      },
+      _count: {
+        id: true,
+      },
+      orderBy: {
+        _count: {
+          id: 'desc',
+        },
+      },
+      take: 10,
+    });
+
+    let content = '🏆 Top 10 người chơi thắng nhiều nhất:\n';
+
+    for (let i = 0; i < topWinners.length; i++) {
+      const user = await this.prisma.userBalance.findUnique({
+        where: { userId: topWinners[i].userId },
+      });
+      content += `${i + 1}. ${user?.username || topWinners[i].userId}: ${topWinners[i]._count.id} lần \n`;
+    }
+
+    await this.mezon.sendMessage({
+      type: EMessageType.CHANNEL,
+      reply_to_message_id: data.message_id,
+      payload: {
+        channel_id: data.channel_id,
+        message: {
+          type: EMessagePayloadType.SYSTEM,
+          content,
+        },
+      },
+    });
+  }
+
+  async handleHDSD(data: ChannelMessage) {
+    await this.mezon.sendMessage({
+      type: EMessageType.CHANNEL,
+      reply_to_message_id: data.message_id,
+      payload: {
+        channel_id: data.channel_id,
+        message: {
+          type: EMessagePayloadType.SYSTEM,
+          content: HDSD,
+        },
+      },
+    });
   }
 }

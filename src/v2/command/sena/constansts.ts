@@ -4,6 +4,33 @@ export const PLAY_COMMAND = '*jack';
 export const CHECK_BALANCE_COMMAND = '*kttk';
 export const WITHDRAW_COMMAND = '*trom';
 export const ACCEPT_COMMAND = '36';
+export const CHECK_TRANSACTION_COMMAND = '*logs';
+export const CHECK_TRANSACTION_SEND_COMMAND = '*lsend';
+export const STATISTICS_COMMAND = '*chan';
+export const HELP_COMMAND = '*alo';
+
+export const HDSD = `Hướng dẫn sử dụng:
+1. ${MYSELF_COMMAND}: Giới thiệu về Sena Bot
+2. ${PLAY_COMMAND}: Chơi game Xì Dách với Sena Bot
+3. ${CHECK_BALANCE_COMMAND}: Kiểm tra số dư tài khoản
+4. ${WITHDRAW_COMMAND} <số tiền>: Rút tiền từ tài khoản của bạn <số tiền> (chỉ cho rút tối thiểu 1000 token)
+5. ${CHECK_TRANSACTION_COMMAND} <transactionId>: Kiểm tra lịch sử giao dịch
+6. ${CHECK_TRANSACTION_SEND_COMMAND} <transactionId>: Kiểm tra lịch sử giao dịch chuyển tiền
+7. ${STATISTICS_COMMAND}: Thống kê top 10 người thắng nhiều nhất
+8. ${HELP_COMMAND}: Trợ giúp và hướng dẫn sử dụng bot
+Để nạp tiền, hãy chuyển token trực tiếp cho SENA.
+--------------------------------------------------
+Cách chơi game Xì Dách:
+1. Reply một người nào đó với cú pháp *jack <số tiền> để bắt đầu chơi game Xì Dách với Sena Bot.
+2. Bạn sẽ nhận được 2 lá bài đầu tiên, và có thể chọn rút thêm bài hoặc dằn.
+3. Mục tiêu là đạt được tổng điểm gần 21 nhất mà không vượt quá 21.
+4. Nếu bạn đạt được Xì Bàng (2 lá bài đầu tiên là AA), bạn sẽ thắng ngay lập tức. và thắng x3 số tiền cược.
+5. Nếu bạn đạt được Xì Jack (2 lá bài đầu tiên là A và 10/J/Q/K), bạn sẽ thắng x2 số tiền cược.
+6. Nếu bạn đạt được Ngũ Linh (5 lá bài có tổng điểm từ 16 trở lên và thấp hơn hoặc bằng 21), bạn sẽ thắng x2 số tiền cược.
+7. Nếu bạn vượt quá 21 điểm, bạn sẽ thua và mất số tiền cược.
+8. Nếu bạn và đối thủ có cùng tổng điểm, kết quả sẽ là hòa và không ai mất tiền.
+9. Nếu bạn trên 26 điểm (ngoắc cần câu), bạn sẽ thua gấp đôi số tiền cược.
+--------------------------------------------------`;
 
 export const EMPTY_BALANCE_MESSAGES = [
   `Nghèo, kiếm thêm tiền để donate cho tao, ít thì 5 quả trướng, nhiều thì 1 quả tên lửa`,

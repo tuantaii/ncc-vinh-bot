@@ -9,6 +9,10 @@ import {
   MYSELF_COMMAND,
   WITHDRAW_COMMAND,
   PLAY_COMMAND,
+  CHECK_TRANSACTION_COMMAND,
+  CHECK_TRANSACTION_SEND_COMMAND,
+  HELP_COMMAND,
+  STATISTICS_COMMAND,
 } from './constansts';
 import { EMessagePayloadType, EMessageType } from 'src/v2/mezon/types/mezon';
 
@@ -30,6 +34,14 @@ export class SenaEvent {
       await this.senaService.checkBalance(data);
     } else if (data.content.t === MYSELF_COMMAND) {
       await this.senaService.introduce(data);
+    } else if (data.content.t?.startsWith(CHECK_TRANSACTION_COMMAND)) {
+      await this.senaService.checkTransaction(data);
+    } else if (data.content.t?.startsWith(CHECK_TRANSACTION_SEND_COMMAND)) {
+      await this.senaService.checkTransactionSend(data);
+    } else if (data.content.t === HELP_COMMAND) {
+      await this.senaService.handleHDSD(data);
+    } else if (data.content.t === STATISTICS_COMMAND) {
+      await this.senaService.handleTop10(data);
     }
   }
 
