@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { SenaService } from './sena.service';
 import { OnEvent } from '@nestjs/event-emitter';
 import { ChannelMessage, Events, TokenSentEvent } from 'mezon-sdk';
@@ -15,34 +15,27 @@ import {
   STATISTICS_COMMAND,
 } from './constansts';
 import { EMessagePayloadType, EMessageType } from 'src/v2/mezon/types/mezon';
+import { Queue } from 'bullmq';
 
 @Injectable()
 export class SenaEvent {
   constructor(
     private readonly senaService: SenaService,
     private readonly mezon: MezonService,
+    @Inject('WITHDRAW_QUEUE') private readonly withdrawQueue: Queue,
+    @Inject('DEPOSIT_QUEUE') private readonly depositQueue: Queue,
+    @Inject('BUTTON-ACTION_QUEUE') private readonly buttonActionQueue: Queue,
+    @Inject('BOT-MESSAGE_QUEUE') private readonly botMessageQueue: Queue,
   ) {}
 
   @OnEvent(Events.TokenSend)
   async handleTokenCreated(data: TokenSentEvent & { transaction_id: string }) {
-    await this.senaService.createToken(data as any);
+    await this.depositQueue.add('deposit', { data });
   }
 
   @OnEvent(Events.ChannelMessage)
   async handleChannelMessage(data: ChannelMessage) {
-    if (data.content.t === CHECK_BALANCE_COMMAND) {
-      await this.senaService.checkBalance(data);
-    } else if (data.content.t === MYSELF_COMMAND) {
-      await this.senaService.introduce(data);
-    } else if (data.content.t?.startsWith(CHECK_TRANSACTION_COMMAND)) {
-      await this.senaService.checkTransaction(data);
-    } else if (data.content.t?.startsWith(CHECK_TRANSACTION_SEND_COMMAND)) {
-      await this.senaService.checkTransactionSend(data);
-    } else if (data.content.t === HELP_COMMAND) {
-      await this.senaService.handleHDSD(data);
-    } else if (data.content.t === STATISTICS_COMMAND) {
-      await this.senaService.handleTop10(data);
-    }
+    await this.botMessageQueue.add('bot-meesage-queue', data);
   }
 
   @OnEvent(Events.ChannelMessage)
@@ -56,7 +49,7 @@ export class SenaEvent {
       if (numberInString) {
         const number = parseInt(numberInString[0]);
         if (number) {
-          await this.senaService.withdraw(data, number);
+          await this.withdrawQueue.add('withdraw', { data, amount: number });
         }
       }
     }
@@ -64,6 +57,6 @@ export class SenaEvent {
 
   @OnEvent(Events.MessageButtonClicked)
   async handleMessageButtonClicked(data: MessageButtonClickedEvent) {
-    this.senaService.handleButtonClicked(data);
+    this.buttonActionQueue.add('button-action-queue', data);
   }
 }
