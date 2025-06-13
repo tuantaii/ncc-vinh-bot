@@ -13,6 +13,8 @@ import {
   CHECK_TRANSACTION_SEND_COMMAND,
   HELP_COMMAND,
   STATISTICS_COMMAND,
+  OFF_WITHDRAW,
+  ON_WITHDRAW,
 } from './constansts';
 import { EMessagePayloadType, EMessageType } from 'src/v2/mezon/types/mezon';
 import { Queue } from 'bullmq';
@@ -52,6 +54,10 @@ export class SenaEvent {
           await this.withdrawQueue.add('withdraw', { data, amount: number });
         }
       }
+    } else if (data.content.t === OFF_WITHDRAW) {
+      await this.senaService.handlOffWithDraw(data);
+    } else if (data.content.t === ON_WITHDRAW) {
+      await this.senaService.handlOnWithDraw(data);
     }
   }
 

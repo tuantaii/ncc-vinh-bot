@@ -11,7 +11,7 @@ export class SenaLogService {
 
   @OnEvent(Events.ChannelMessage)
   async handleChannelMessage(message: ChannelMessage) {
-    if (message.display_name === BOT_NAME) return;
+    if (message.display_name !== BOT_NAME) return;
     await this.prisma.messageLogs.create({
       data: {
         messageId: message.message_id!,

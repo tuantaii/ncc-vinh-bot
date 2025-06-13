@@ -41,6 +41,7 @@ export class MezonService {
 
       if (data.reply_to_message_id) {
         const message = await channel.messages.fetch(data.reply_to_message_id);
+        console.log('message', message);
         if (!message?.id) {
           console.log(message);
           throw new Error(

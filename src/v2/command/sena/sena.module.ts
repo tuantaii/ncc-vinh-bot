@@ -12,6 +12,7 @@ import {
 } from './queue';
 import { SenaEvent } from './sena.event';
 import { SenaService } from './sena.service';
+import { SenaChedule } from './ultis';
 
 @Module({
   imports: [PrismaModule, MezonModule, RedisModule],
@@ -22,6 +23,7 @@ import { SenaService } from './sena.service';
     DepositProcessor,
     ButtonActionProcessor,
     BotMessageProcessor,
+    SenaChedule,
     {
       provide: 'DEPOSIT_QUEUE',
       useFactory: (redis: Redis) => {

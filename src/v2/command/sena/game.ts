@@ -97,12 +97,6 @@ export class Game {
     }
   }
 
-  isFiveSprits(player: 'host' | 'guest'): boolean {
-    const cards = player === 'host' ? this.hostCards : this.guestCards;
-    const score = this.getScore(cards);
-    return cards.length === 5 && score.value <= 21;
-  }
-
   get result(): GAME_RESULT {
     const { value: guestScore } = this.guestScore;
     const { value: hostScore } = this.hostScore;

@@ -1,3 +1,5 @@
+import { SenaCaculator } from './ultis';
+
 export const BOT_NAME = 'SENA';
 export const MYSELF_COMMAND = '*sena';
 export const PLAY_COMMAND = '*jack';
@@ -8,12 +10,16 @@ export const CHECK_TRANSACTION_COMMAND = '*logs';
 export const CHECK_TRANSACTION_SEND_COMMAND = '*lsend';
 export const STATISTICS_COMMAND = '*chan';
 export const HELP_COMMAND = '*alo';
+export const ID_BOT = '1840692108470521856';
+export const OFF_WITHDRAW = '*offrut';
+export const ON_WITHDRAW = '*onrut';
+export const BLOCK_WITHDRAW_KEY = 'BLOCK_WITHDRAW_KEY';
 
 export const HDSD = `Hướng dẫn sử dụng:
 1. ${MYSELF_COMMAND}: Giới thiệu về Sena Bot
 2. ${PLAY_COMMAND}: Chơi game Xì Dách với Sena Bot
 3. ${CHECK_BALANCE_COMMAND}: Kiểm tra số dư tài khoản
-4. ${WITHDRAW_COMMAND} <số tiền>: Rút tiền từ tài khoản của bạn <số tiền> (chỉ cho rút tối thiểu 1000 token)
+4. ${WITHDRAW_COMMAND} <số tiền>: Rút tiền từ tài khoản của bạn <số tiền>
 5. ${CHECK_TRANSACTION_COMMAND} <transactionId>: Kiểm tra lịch sử giao dịch
 6. ${CHECK_TRANSACTION_SEND_COMMAND} <transactionId>: Kiểm tra lịch sử giao dịch chuyển tiền
 7. ${STATISTICS_COMMAND}: Thống kê top 10 người thắng nhiều nhất
@@ -37,19 +43,11 @@ export const EMPTY_BALANCE_MESSAGES = [
   'HẾT TIỀN RỒI! Pay more for love',
 ];
 
-export const formatVND = (amount: number): string => {
-  if (isNaN(amount)) {
-    throw new Error('Số tiền không hợp lệ');
-  }
-  return new Intl.NumberFormat('vi-VN', {
-    style: 'currency',
-    currency: 'VND',
-  }).format(amount);
-};
 export const MAX_CARDS = 5;
 export const MAX_SCORE = 21;
 export const MIN_SCORE = 16;
 export const DOUBLE_COST_SCORE = 28;
+export const WR_SYSTEM = 'system';
 
 export enum GAME_RESULT {
   HOST_WIN,
@@ -70,7 +68,7 @@ export const gameMessages = {
     `Cả 2 đã dằn.
     Bài của ${data.hostName} là ${data.hostCardDisplay} => Tổng: ${data.hostScore}.
     Bài của ${data.guestName} là ${data.guestCardDisplay} => Tổng: ${data.guestScore}.
-    Kết quả: ${data.hostName} thắng và nhận được ${formatVND(data.cost)} token`,
+    Kết quả: ${data.hostName} thắng và nhận được ${SenaCaculator.formatVND(data.cost)} token`,
   [GAME_RESULT.GUEST_WIN]: (data: {
     hostName: string;
     hostCardDisplay: string;
@@ -83,7 +81,7 @@ export const gameMessages = {
     `Cả 2 đã dằn.
     Bài của ${data.hostName} là ${data.hostCardDisplay} => Tổng: ${data.hostScore}.
     Bài của ${data.guestName} là ${data.guestCardDisplay} => Tổng: ${data.guestScore}.
-    Kết quả: ${data.guestName} thắng và nhận được ${formatVND(data.cost)} token`,
+    Kết quả: ${data.guestName} thắng và nhận được ${SenaCaculator.formatVND(data.cost)} token`,
   guestPlayerStood: (data: { hostName: string; guestName: string }) =>
     `${data.guestName} đã dằn, tới lượt ${data.hostName}.`,
   playerHitting: (data: {
@@ -114,13 +112,13 @@ export const gameMessages = {
     loseCardDisplay: string;
     loseScore: number;
   }) =>
-    `Bài của ${data.winnerName} là ${data.winnerCardDisplay} => Tổng: ${data.winnerScore}.\nBài của ${data.loserName} là ${data.loseCardDisplay} => Tổng: ${data.loseScore}.\n${data.loserName} ngoắc cần câu, cháy trên ${DOUBLE_COST_SCORE} điểm thua x2 tiền, bay ${formatVND(data.cost)} token`,
+    `Bài của ${data.winnerName} là ${data.winnerCardDisplay} => Tổng: ${data.winnerScore}.\nBài của ${data.loserName} là ${data.loseCardDisplay} => Tổng: ${data.loseScore}.\n${data.loserName} ngoắc cần câu, cháy trên ${DOUBLE_COST_SCORE} điểm thua x2 tiền, bay ${SenaCaculator.formatVND(data.cost)} token`,
   blackjack: (data: { winnerName: string; loserName: string; cost: number }) =>
-    `${data.winnerName} được Xì Jack, ${data.loserName} thua. x2 money. lụm ${formatVND(data.cost)} token`,
+    `${data.winnerName} được Xì Jack, ${data.loserName} thua. x2 money. lụm ${SenaCaculator.formatVND(data.cost)} token`,
   doubleAce: (data: { winnerName: string; loserName: string; cost: number }) =>
-    `${data.winnerName} được Xì Bàng, ${data.loserName} thua. x3 money. lụm ${formatVND(data.cost)} token`,
+    `${data.winnerName} được Xì Bàng, ${data.loserName} thua. x3 money. lụm ${SenaCaculator.formatVND(data.cost)} token`,
   fiveSprits: (data: { winnerName: string; loserName: string; cost: number }) =>
-    `${data.winnerName} được ngũ linh, ${data.loserName} thua. x2 money. lụm ${formatVND(data.cost)} token`,
+    `${data.winnerName} được ngũ linh, ${data.loserName} thua. x2 money. lụm ${SenaCaculator.formatVND(data.cost)} token`,
   [GAME_RESULT.DRAW]: (data: {
     hostName: string;
     hostCardDisplay: string;

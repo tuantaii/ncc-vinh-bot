@@ -1,5 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { EJackGameStatus, ETransactionType } from '@prisma/client';
+import {
+  BlackJackGame,
+  EJackGameStatus,
+  ETransactionType,
+} from '@prisma/client';
 import {
   ChannelMessage,
   EButtonMessageStyle,
@@ -13,66 +17,68 @@ import { MezonService } from 'src/v2/mezon/mezon.service';
 import { EMessagePayloadType, EMessageType } from 'src/v2/mezon/types/mezon';
 import { v4 as uuidv4 } from 'uuid';
 import {
-  DOUBLE_COST_SCORE,
+  BLOCK_WITHDRAW_KEY,
   EMPTY_BALANCE_MESSAGES,
-  formatVND,
   GAME_RESULT,
   gameMessages,
   HDSD,
   MAX_CARDS,
   MIN_SCORE,
+  WR_SYSTEM,
 } from './constansts';
 import { Game } from './game';
 import { MessageButtonClickedEvent } from './types';
 import { GameMetadata } from './types/game';
-
-const SUITS = ['♠', '♥', '♦', '♣'];
-const RANKS = [
-  'A',
-  '2',
-  '3',
-  '4',
-  '5',
-  '6',
-  '7',
-  '8',
-  '9',
-  '10',
-  'J',
-  'Q',
-  'K',
-];
-
-export enum ButtonKey {
-  HIT = 'hit',
-  STAND = 'stand',
-  RUN = 'run',
-  AGREE = 'agree',
-  CANCEL = 'cancel',
-}
-
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+import { ButtonKey, SenaCaculator } from './ultis';
+import { RedisRepository } from 'src/core/redis/redis.repo';
 
 @Injectable()
 export class SenaService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly mezon: MezonService,
+    private readonly redisRepository: RedisRepository,
   ) {}
+  private delay(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
 
-  async introduce(data: ChannelMessage) {
-    const message = `👋 Chào nợ tộc, tao là Sena, thằng nào có tiền thì donate cho tao.`;
-    await this.mezon.sendMessage({
+  private async sendSystemMessage(
+    channel_id: string,
+    content: string,
+    reply_to_message_id?: string,
+  ) {
+    return this.mezon.sendMessage({
       type: EMessageType.CHANNEL,
-      reply_to_message_id: data.message_id,
+      reply_to_message_id,
       payload: {
-        channel_id: data.channel_id,
+        channel_id,
         message: {
           type: EMessagePayloadType.SYSTEM,
-          content: message,
+          content,
         },
       },
     });
+  }
+
+  private async updateSystemMessage(
+    channel_id: string,
+    message_id: string,
+    content: string,
+  ) {
+    return this.mezon.updateMessage({
+      channel_id,
+      message_id,
+      content: {
+        type: EMessagePayloadType.SYSTEM,
+        content,
+      },
+    });
+  }
+
+  async introduce(data: ChannelMessage) {
+    const message = `👋 Chào nợ tộc, tao là Sena, thằng nào có tiền thì donate cho tao.`;
+    await this.sendSystemMessage(data.channel_id, message, data.message_id);
   }
 
   async createToken(data: TokenSentEvent & { transaction_id: string }) {
@@ -154,19 +160,9 @@ export class SenaService {
     });
     if (!userBalance) {
       const message = random(EMPTY_BALANCE_MESSAGES);
-      await this.mezon.sendMessage({
-        type: EMessageType.CHANNEL,
-        reply_to_message_id: data.message_id,
-        payload: {
-          channel_id: data.channel_id,
-          message: {
-            type: EMessagePayloadType.SYSTEM,
-            content: message,
-          },
-        },
-      });
+      await this.sendSystemMessage(data.channel_id, message, data.message_id);
     } else {
-      const message = `💸 Số dư của bạn là ${formatVND(userBalance.balance)} token`;
+      const message = `💸 Số dư của bạn là ${SenaCaculator.formatVND(userBalance.balance)} token`;
       await this.mezon.sendMessage({
         type: EMessageType.CHANNEL,
         reply_to_message_id: data.message_id,
@@ -182,6 +178,16 @@ export class SenaService {
   }
 
   async withdraw(data: ChannelMessage, amount: number) {
+    const isBlocked = await this.redisRepository.get(
+      WR_SYSTEM,
+      BLOCK_WITHDRAW_KEY,
+    );
+    const content = 'Chức năng rút tiền đang bị khóa. Vui lòng thử lại sau!';
+    if (isBlocked) {
+      await this.sendSystemMessage(data.channel_id, content, data.message_id);
+      return;
+    }
+
     const isPlayingGame = await this.prisma.blackJackGame.findFirst({
       where: {
         OR: [{ hostId: data.sender_id }, { guestId: data.sender_id }],
@@ -233,7 +239,7 @@ export class SenaService {
       await this.mezon.sendToken({
         user_id: data.sender_id,
         amount: amount,
-        note: `Rút ${formatVND(amount)} token`,
+        note: `Rút ${SenaCaculator.formatVND(amount)} token`,
       });
 
       await this.prisma.$transaction(async (tx) => {
@@ -257,7 +263,7 @@ export class SenaService {
         });
       });
 
-      const message = `💸 Rút ${formatVND(amount)} token thành công`;
+      const message = `💸 Rút ${SenaCaculator.formatVND(amount)} token thành công`;
       await this.mezon.sendMessage({
         type: EMessageType.CHANNEL,
         reply_to_message_id: data.message_id,
@@ -374,14 +380,7 @@ export class SenaService {
 
     const { guestName } = game;
     const message = `💸 ${guestName} đã trốn.`;
-    await this.mezon.updateMessage({
-      channel_id: record.channelId,
-      message_id: record.messageId,
-      content: {
-        type: EMessagePayloadType.SYSTEM,
-        content: message,
-      },
-    });
+    await this.updateSystemMessage(record.channelId, record.messageId, message);
     await this.prisma.blackJackGame.update({
       where: { id: game.id },
       data: {
@@ -445,8 +444,8 @@ export class SenaService {
             content:
               gameMessages.userHand({
                 userName: 'Bạn',
-                cardDisplay: cards.map(this.getCardDisplay).join(', '),
-                score: this.calculateHandValue(cards),
+                cardDisplay: cards.map(SenaCaculator.getCardDisplay).join(', '),
+                score: SenaCaculator.calculateHandValue(cards),
                 isDoubleAce:
                   cards.length === 2 && cards.every((i) => i % 13 === 0),
               }) + partner,
@@ -477,8 +476,8 @@ export class SenaService {
             type: EMessagePayloadType.SYSTEM,
             content: gameMessages.userHand({
               userName,
-              cardDisplay: cards.map(this.getCardDisplay).join(', '),
-              score: this.calculateHandValue(cards),
+              cardDisplay: cards.map(SenaCaculator.getCardDisplay).join(', '),
+              score: SenaCaculator.calculateHandValue(cards),
               isDoubleAce:
                 cards.length === 2 && cards.every((i) => i % 13 === 0),
             }),
@@ -500,20 +499,65 @@ export class SenaService {
         status: EJackGameStatus.WAITING,
       },
     });
-    if (!record) return;
+    if (!record || record.guestId !== user_id) return;
 
-    if (record.guestId == user_id) {
+    const totalLock = record.cost * 3;
+    let lockSuccess = false;
+
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        const [host, guest] = await Promise.all([
+          tx.userBalance.findUnique({ where: { userId: record.hostId } }),
+          tx.userBalance.findUnique({ where: { userId: record.guestId } }),
+        ]);
+
+        if (
+          !host ||
+          !guest ||
+          host.balance < totalLock ||
+          guest.balance < totalLock
+        ) {
+          throw new Error('Số dư không đủ để lock tiền cược x3');
+        }
+
+        await Promise.all([
+          tx.userBalance.update({
+            where: { userId: record.hostId },
+            data: { balance: { decrement: totalLock } },
+          }),
+          tx.userBalance.update({
+            where: { userId: record.guestId },
+            data: { balance: { decrement: totalLock } },
+          }),
+          tx.transactionLogs.create({
+            data: {
+              transactionId: `lock_${record.id}_${Date.now()}_host`,
+              userId: record.hostId,
+              amount: -totalLock,
+              type: ETransactionType.LOCKS,
+            },
+          }),
+          tx.transactionLogs.create({
+            data: {
+              transactionId: `lock_${record.id}_${Date.now()}_guest`,
+              userId: record.guestId,
+              amount: -totalLock,
+              type: ETransactionType.LOCKS,
+            },
+          }),
+        ]);
+
+        lockSuccess = true;
+      });
+
       const game = new Game(record);
-
-      const message = `${game.guestName} đang rút...`;
-
       await this.mezon.updateMessage({
         channel_id: record.channelId,
         message_id,
         content: {
           type: EMessagePayloadType.OPTIONAL,
           content: {
-            t: message,
+            t: `${game.guestName} đang rút...`,
             components: this.createActionButtons(),
           },
         },
@@ -521,15 +565,10 @@ export class SenaService {
 
       game.startGame();
 
-      // game.hostCards = [0, 10]; // Set guest's initial cards to Ace of Spades and 2 of Hearts for test ting
-
-      const guestCardsString = game.guestCards
-        .map(this.getCardDisplay)
-        .join(', ');
-
-      const hostCardsString = game.hostCards
-        .map(this.getCardDisplay)
-        .join(', ');
+      const [guestCardsString, hostCardsString] = [
+        game.guestCards.map(SenaCaculator.getCardDisplay).join(', '),
+        game.hostCards.map(SenaCaculator.getCardDisplay).join(', '),
+      ];
 
       await Promise.all([
         this.prisma.blackJackGameLogs.create({
@@ -539,30 +578,10 @@ export class SenaService {
             card: guestCardsString,
           },
         }),
-
         this.prisma.blackJackGameLogs.create({
-          data: {
-            gameId: game.id,
-            userId: game.hostId,
-            card: hostCardsString,
-          },
+          data: { gameId: game.id, userId: game.hostId, card: hostCardsString },
         }),
       ]);
-
-      // const [playerMessage, hostMessage] = await Promise.all([
-      //   this.sendCardMessageToChannel({
-      //     channelId: record.channelId,
-      //     userName: record.guestName,
-      //     cards: game.guestCards,
-      //     messageId: record.messageId,
-      //   }),
-      //   this.sendCardMessageToChannel({
-      //     channelId: record.channelId,
-      //     userName: record.hostName,
-      //     cards: game.hostCards,
-      //     messageId: record.messageId,
-      //   }),
-      // ]);
 
       const [playerMessage, hostMessage] = await Promise.all([
         this.sendCardMessageToUser(
@@ -574,80 +593,8 @@ export class SenaService {
       ]);
 
       const earlyWin = game.calculateEarlyWin();
-
-      if (earlyWin === GAME_RESULT.HOST_WIN || earlyWin) {
-        game.end();
-
-        let content: string;
-        await this.updateUserBalanceAfterGame(game, earlyWin);
-
-        if (earlyWin === GAME_RESULT.HOST_WIN && game.hostScore.isDoubleAce) {
-          content = gameMessages.doubleAce({
-            winnerName: game.hostName,
-            loserName: game.guestName,
-            cost: game.cost * 3,
-          });
-        } else if (
-          earlyWin === GAME_RESULT.GUEST_WIN &&
-          game.guestScore.isDoubleAce
-        ) {
-          content = gameMessages.doubleAce({
-            winnerName: game.guestName,
-            loserName: game.hostName,
-            cost: game.cost * 3,
-          });
-        } else if (
-          earlyWin === GAME_RESULT.HOST_WIN &&
-          game.hostScore.isBlackjack
-        ) {
-          content = gameMessages.blackjack({
-            winnerName: game.hostName,
-            loserName: game.guestName,
-            cost: game.cost * 2,
-          });
-        } else if (
-          earlyWin === GAME_RESULT.GUEST_WIN &&
-          game.guestScore.isBlackjack
-        ) {
-          content = gameMessages.blackjack({
-            winnerName: game.guestName,
-            loserName: game.hostName,
-            cost: game.cost * 2,
-          });
-        } else {
-          content = gameMessages[earlyWin]({
-            hostName: game.hostName,
-            hostCardDisplay: game.hostCards.map(this.getCardDisplay).join(', '),
-            hostScore: game.hostScore.value,
-            guestName: game.guestName,
-            guestCardDisplay: game.guestCards
-              .map(this.getCardDisplay)
-              .join(', '),
-            guestScore: game.guestScore.value,
-            cost: game.cost,
-          });
-        }
-
-        await this.mezon.updateMessage({
-          channel_id: record.channelId,
-          message_id: record.messageId,
-          content: {
-            type: EMessagePayloadType.SYSTEM,
-            content,
-          },
-        });
-
-        await this.mezon.sendMessage({
-          type: EMessageType.CHANNEL,
-          reply_to_message_id: record.messageId,
-          payload: {
-            channel_id: record.channelId,
-            message: {
-              type: EMessagePayloadType.SYSTEM,
-              content,
-            },
-          },
-        });
+      if (earlyWin) {
+        await this.handleEarlyWin(game, record, earlyWin);
       }
 
       await this.prisma.blackJackGame.update({
@@ -663,7 +610,22 @@ export class SenaService {
             guestChannelId: playerMessage.channel_id,
             hostMessageId: hostMessage.message_id,
             hostChannelId: hostMessage.channel_id,
+            lockedAmount: totalLock,
           } as GameMetadata,
+        },
+      });
+    } catch (err) {
+      console.error('Error in handleAgreeButton:', err);
+      if (lockSuccess) {
+        await this.refundedLock(record, totalLock);
+      }
+
+      await this.mezon.updateMessage({
+        channel_id: record.channelId,
+        message_id,
+        content: {
+          type: EMessagePayloadType.SYSTEM,
+          content: `Không thể bắt đầu game: ${err.message || 'Lỗi hệ thống'}.`,
         },
       });
     }
@@ -673,7 +635,7 @@ export class SenaService {
     const { message_id: messageId, user_id: userId } = data;
     const record = await this.prisma.blackJackGame.findFirst({
       where: {
-        messageId: messageId,
+        messageId,
         status: EJackGameStatus.PLAYING,
       },
     });
@@ -687,250 +649,133 @@ export class SenaService {
     let newMessageId = record.messageId;
 
     try {
-      if (isGuestTurn) {
-        game.hitCard();
-        const { guestMessageId, guestChannelId } =
-          record.metadata as GameMetadata;
-        const playerMessageText =
-          gameMessages.userHand({
-            userName: game.guestName,
-            cardDisplay: game.guestCards.map(this.getCardDisplay).join(', '),
-            score: this.calculateHandValue(game.guestCards),
-            isDoubleAce: game.guestScore.isDoubleAce,
-          }) + `\nĐối thủ của bạn: ${game.hostName}`;
+      game.hitCard();
 
-        const cardIndex = game.guestCards[game.guestCards.length - 1];
-        const cardString = this.getCardDisplay(cardIndex);
+      const metadata = record.metadata as GameMetadata;
+      const playerMessageText =
+        gameMessages.userHand({
+          userName: isGuestTurn ? game.guestName : game.hostName,
+          cardDisplay: (isGuestTurn ? game.guestCards : game.hostCards)
+            .map(SenaCaculator.getCardDisplay)
+            .join(', '),
+          score: SenaCaculator.calculateHandValue(
+            isGuestTurn ? game.guestCards : game.hostCards,
+          ),
+          isDoubleAce: (isGuestTurn ? game.guestScore : game.hostScore)
+            .isDoubleAce,
+        }) +
+        `\nĐối thủ của bạn: ${isGuestTurn ? game.hostName : game.guestName}`;
 
-        await this.prisma.blackJackGameLogs.create({
-          data: {
-            gameId: game.id,
-            userId: game.guestId,
-            card: cardString,
-          },
+      const cardIndex = (isGuestTurn ? game.guestCards : game.hostCards).slice(
+        -1,
+      )[0];
+      const cardString = SenaCaculator.getCardDisplay(cardIndex);
+
+      await this.prisma.blackJackGameLogs.create({
+        data: {
+          gameId: game.id,
+          userId: isGuestTurn ? game.guestId : game.hostId,
+          card: cardString,
+        },
+      });
+
+      const isEndGame = game.status === EJackGameStatus.ENDED;
+      const isChangeTurn =
+        (isGuestTurn ? game.guestCards : game.hostCards).length === MAX_CARDS;
+
+      if (isEndGame) {
+        await this.handleEndGameNgulinh(game, record);
+      } else if (isChangeTurn) {
+        const hostCardCount = game.hostCards.length - 2;
+        const systemMessageText = this.generateTurnMessage({
+          currentPlayerName: game.hostName,
+          opponentName: game.guestName,
+          cardCount: hostCardCount,
         });
 
-        const isChangeTurn = game.guestCards.length === MAX_CARDS;
-        const cardCount = game.guestCards.length - 2;
-        let systemMessageText = '';
-
-        if (isChangeTurn || game.status === EJackGameStatus.ENDED) {
-          if (game.status === EJackGameStatus.ENDED) {
-            // Trò chơi kết thúc, không gửi tin nhắn reply chuyển lượt
-            await this.updateGameMessageOnEnd({
-              channelId: record.channelId,
-              messageId: record.messageId,
-              hostName: game.hostName,
-              guestName: game.guestName,
-            });
-
-            const resultMessage = gameMessages[game.result]({
-              hostName: game.hostName,
-              hostCardDisplay: game.hostCards
-                .map(this.getCardDisplay)
-                .join(', '),
-              hostScore: game.hostScore.value,
-              guestName: game.guestName,
-              guestCardDisplay: game.guestCards
-                .map(this.getCardDisplay)
-                .join(', '),
-              guestScore: game.guestScore.value,
-              cost: game.cost,
-            });
-
-            await this.sendGameResultMessage({
-              channelId: record.channelId,
-              replyToMessageId: record.messageId,
-              hostName: game.hostName,
-              guestName: game.guestName,
-              resultMessage,
-            });
-
-            await this.updateUserBalanceAfterGame(game, game.result);
-          } else {
-            // Trò chơi chưa kết thúc, gửi tin nhắn reply chuyển lượt
-            const hostCardCount = game.hostCards.length - 2;
-            systemMessageText = this.generateTurnMessage({
-              currentPlayerName: game.hostName,
-              opponentName: game.guestName,
-              cardCount: hostCardCount,
-            });
-
-            const newMessage = await this.mezon.sendMessage({
-              type: EMessageType.CHANNEL,
-              reply_to_message_id: record.messageId,
-              payload: {
-                channel_id: record.channelId,
-                message: {
-                  type: EMessagePayloadType.OPTIONAL,
-                  content: {
-                    t: systemMessageText,
-                    components: this.createActionButtons(),
-                  },
-                },
-              },
-            });
-
-            newMessageId = newMessage.message_id;
-
-            // Cập nhật tin nhắn cũ để xóa các nút hành động
-            await this.mezon.updateMessage({
-              channel_id: record.channelId,
-              message_id: record.messageId,
-              content: {
-                type: EMessagePayloadType.OPTIONAL,
-                content: {
-                  t: `${game.guestName} đã rút đủ 5 lá. Đang chờ ${game.hostName}...`,
-                  components: [], // Xóa các nút hành động
-                },
-              },
-            });
-          }
-        } else {
-          systemMessageText = gameMessages.playerHitting({
-            guestName: game.guestName,
-            cardCount,
-            hostName: game.hostName,
-          });
-
-          await this.mezon.updateMessage({
+        const newMessage = await this.mezon.sendMessage({
+          type: EMessageType.CHANNEL,
+          reply_to_message_id: record.messageId,
+          payload: {
             channel_id: record.channelId,
-            message_id: record.messageId,
-            content: {
+            message: {
               type: EMessagePayloadType.OPTIONAL,
               content: {
                 t: systemMessageText,
                 components: this.createActionButtons(),
               },
             },
-          });
-        }
+          },
+        });
 
-        await Promise.all([
-          this.mezon.updateMessage({
-            channel_id: guestChannelId!,
-            message_id: guestMessageId!,
+        newMessageId = newMessage.message_id;
+
+        await this.mezon.updateMessage({
+          channel_id: record.channelId,
+          message_id: record.messageId,
+          content: {
+            type: EMessagePayloadType.OPTIONAL,
             content: {
-              type: EMessagePayloadType.SYSTEM,
-              content: playerMessageText,
+              t: `${isGuestTurn ? game.guestName : game.hostName} đã rút đủ 5 lá. Đang chờ ${isGuestTurn ? game.hostName : game.guestName}...`,
+              components: [],
             },
-          }),
-          this.prisma.blackJackGame.update({
-            where: { id: game.id },
-            data: {
-              messageId: newMessageId,
-              remainingCards: game.remainingCards,
-              guestCards: game.guestCards,
-              turnOf: game.turnOf,
-              isGuestStand: game.isGuestStand,
-              status: game.status,
-            },
-          }),
-        ]);
+          },
+        });
       } else {
-        game.hitCard();
-        const { hostMessageId, hostChannelId } =
-          record.metadata as GameMetadata;
-        const hostMessageText =
-          gameMessages.userHand({
-            userName: game.hostName,
-            cardDisplay: game.hostCards.map(this.getCardDisplay).join(', '),
-            score: this.calculateHandValue(game.hostCards),
-          }) + `\nĐối thủ của bạn: ${game.guestName}`;
-
-        const cardIndex = game.hostCards[game.hostCards.length - 1];
-        const cardString = this.getCardDisplay(cardIndex);
-
-        await this.prisma.blackJackGameLogs.create({
-          data: {
-            gameId: game.id,
-            userId: game.hostId,
-            card: cardString,
-          },
+        const cardCount =
+          (isGuestTurn ? game.guestCards : game.hostCards).length - 2;
+        const systemMessageText = gameMessages.playerHitting({
+          guestName: isGuestTurn ? game.guestName : game.hostName,
+          cardCount,
+          hostName: isGuestTurn ? game.hostName : game.guestName,
         });
 
-        const isEndGame = game.status === EJackGameStatus.ENDED;
-        const {
-          hostName,
-          guestName,
-          hostCards,
-          guestCards,
-          hostScore,
-          guestScore,
-          result,
-        } = game;
-
-        let systemMessageText = isEndGame
-          ? gameMessages[result]({
-              hostName,
-              hostCardDisplay: hostCards.map(this.getCardDisplay).join(', '),
-              hostScore: hostScore.value,
-              guestName,
-              guestCardDisplay: guestCards.map(this.getCardDisplay).join(', '),
-              guestScore: guestScore.value,
-              cost: game.cost,
-            })
-          : gameMessages.playerHitting({
-              guestName: game.hostName,
-              cardCount: hostCards.length - 2,
-              hostName: guestName,
-            });
-
-        if (isEndGame) {
-          // Cập nhật tin nhắn hiện tại
-          await this.updateGameMessageOnEnd({
-            channelId: record.channelId,
-            messageId: record.messageId,
-            hostName: game.hostName,
-            guestName: game.guestName,
-          });
-
-          // Gửi tin nhắn kết quả
-          await this.sendGameResultMessage({
-            channelId: record.channelId,
-            replyToMessageId: record.messageId,
-            hostName: hostName,
-            guestName: guestName,
-            resultMessage: systemMessageText,
-          });
-
-          await this.updateUserBalanceAfterGame(game, result);
-        } else {
-          await this.mezon.updateMessage({
-            channel_id: record.channelId,
-            message_id: record.messageId,
+        await this.mezon.updateMessage({
+          channel_id: record.channelId,
+          message_id: record.messageId,
+          content: {
+            type: EMessagePayloadType.OPTIONAL,
             content: {
-              type: EMessagePayloadType.OPTIONAL,
-              content: {
-                t: systemMessageText,
-                components: this.createActionButtons(),
-              },
+              t: systemMessageText,
+              components: this.createActionButtons(),
             },
-          });
-        }
-
-        await Promise.all([
-          this.mezon.updateMessage({
-            channel_id: hostChannelId!,
-            message_id: hostMessageId!,
-            content: {
-              type: EMessagePayloadType.SYSTEM,
-              content: hostMessageText,
-            },
-          }),
-          this.prisma.blackJackGame.update({
-            where: { id: game.id },
-            data: {
-              hostCards: game.hostCards,
-              guestCards: game.guestCards,
-              remainingCards: game.remainingCards,
-              turnOf: game.turnOf,
-              isHostStand: game.isHostStand,
-              status: game.status,
-            },
-          }),
-        ]);
+          },
+        });
       }
+
+      if (isGuestTurn) {
+        await this.mezon.updateMessage({
+          channel_id: metadata.guestChannelId!,
+          message_id: metadata.guestMessageId!,
+          content: {
+            type: EMessagePayloadType.SYSTEM,
+            content: playerMessageText,
+          },
+        });
+      } else {
+        await this.mezon.updateMessage({
+          channel_id: metadata.hostChannelId!,
+          message_id: metadata.hostMessageId!,
+          content: {
+            type: EMessagePayloadType.SYSTEM,
+            content: playerMessageText,
+          },
+        });
+      }
+
+      await this.prisma.blackJackGame.update({
+        where: { id: game.id },
+        data: {
+          hostCards: game.hostCards,
+          guestCards: game.guestCards,
+          remainingCards: game.remainingCards,
+          turnOf: game.turnOf,
+          isHostStand: game.isHostStand,
+          isGuestStand: game.isGuestStand,
+          status: game.status,
+          messageId: newMessageId,
+        },
+      });
     } catch (error) {
       console.error('Error handling hit button:', error);
       await this.mezon.updateMessage({
@@ -960,11 +805,12 @@ export class SenaService {
     const game = new Game(record);
     const isHost = userId === game.hostId;
     const score = isHost
-      ? this.calculateHandValue(game.hostCards)
-      : this.calculateHandValue(game.guestCards);
+      ? SenaCaculator.calculateHandValue(game.hostCards)
+      : SenaCaculator.calculateHandValue(game.guestCards);
+
+    const playerName = isHost ? game.hostName : game.guestName;
 
     try {
-      // Kiểm tra điểm tối thiểu
       if (score < MIN_SCORE) {
         await this.mezon.updateMessage({
           channel_id: record.channelId,
@@ -972,7 +818,7 @@ export class SenaService {
           content: {
             type: EMessagePayloadType.OPTIONAL,
             content: {
-              t: `Điểm của bạn chưa đủ để dằn. Rút mạnh đê bạn sợ à?`,
+              t: `Điểm của ${playerName} chưa đủ để dằn. Rút mạnh đê bạn sợ à?`,
               components: [
                 {
                   components: [
@@ -993,158 +839,56 @@ export class SenaService {
         return;
       }
 
-      // Gọi stand để cập nhật trạng thái
       game.stand();
 
-      let systemMessageText = '';
-      let newMessageId = record.messageId;
-      let isEnded = game.status === EJackGameStatus.ENDED;
-
-      if (game.status === EJackGameStatus.PLAYING) {
-        // Tính số lá bài host đã rút
-        const hostCardCount = game.hostCards.length - 2;
-        systemMessageText = this.generateTurnMessage({
-          currentPlayerName: game.hostName,
-          opponentName: game.guestName,
-          cardCount: hostCardCount,
-        });
-
-        // Gửi tin nhắn mới reply đến tin nhắn cũ
-        const newMessage = await this.mezon.sendMessage({
-          type: EMessageType.CHANNEL,
-          reply_to_message_id: record.messageId,
-          payload: {
-            channel_id: record.channelId,
-            message: {
-              type: EMessagePayloadType.OPTIONAL,
-              content: {
-                t: systemMessageText,
-                components: this.createActionButtons(),
-              },
-            },
+      if (game.status === EJackGameStatus.ENDED) {
+        await this.handleEndGameNgulinh(game, record);
+        await this.prisma.blackJackGame.update({
+          where: { id: game.id },
+          data: {
+            messageId: record.messageId,
+            status: game.status,
+            turnOf: game.turnOf,
+            isGuestStand: game.isGuestStand,
+            isHostStand: game.isHostStand,
           },
         });
-
-        newMessageId = newMessage.message_id;
-
-        // Cập nhật tin nhắn cũ để xóa các nút hành động
-        await this.mezon.updateMessage({
-          channel_id: record.channelId,
-          message_id: record.messageId,
-          content: {
-            type: EMessagePayloadType.OPTIONAL,
-            content: {
-              t: `${game.guestName} đã dừng. Đang chờ ${game.hostName}...`,
-              components: [], // Xóa các nút hành động
-            },
-          },
-        });
-      } else {
-        // Xử lý khi cả hai đều dừng
-        const bothStand = game.isHostStand && game.isGuestStand;
-        if (bothStand) {
-          const guestFive = game.isFiveSprits('guest');
-          const hostFive = game.isFiveSprits('host');
-
-          if (guestFive && hostFive) {
-            game.end();
-            await this.updateUserBalanceAfterGame(game, GAME_RESULT.DRAW);
-            systemMessageText = `Cả ${game.guestName} và ${game.hostName} đều ngũ linh. HÒA!`;
-          } else if (guestFive) {
-            game.end();
-            await this.updateUserBalanceAfterGame(game, GAME_RESULT.GUEST_WIN);
-            systemMessageText = gameMessages.fiveSprits({
-              winnerName: game.guestName,
-              loserName: game.hostName,
-              cost: game.cost * 2,
-            });
-          } else if (hostFive) {
-            game.end();
-            await this.updateUserBalanceAfterGame(game, GAME_RESULT.HOST_WIN);
-            systemMessageText = gameMessages.fiveSprits({
-              winnerName: game.hostName,
-              loserName: game.guestName,
-              cost: game.cost * 2,
-            });
-          }
-        }
-
-        if (!systemMessageText && isEnded) {
-          await this.updateUserBalanceAfterGame(game, game.result);
-          if (
-            game.hostScore.value >= DOUBLE_COST_SCORE &&
-            game.guestScore.value < DOUBLE_COST_SCORE
-          ) {
-            systemMessageText = gameMessages.overScoreDoubleCost({
-              loserName: game.hostName,
-              cost: game.cost * 2,
-              loseCardDisplay: game.hostCards
-                .map(this.getCardDisplay)
-                .join(', '),
-              loseScore: game.hostScore.value,
-              winnerName: game.guestName,
-              winnerCardDisplay: game.hostCards
-                .map(this.getCardDisplay)
-                .join(', '),
-              winnerScore: game.guestScore.value,
-            });
-          } else if (
-            game.guestScore.value >= DOUBLE_COST_SCORE &&
-            game.hostScore.value < DOUBLE_COST_SCORE
-          ) {
-            systemMessageText = gameMessages.overScoreDoubleCost({
-              loserName: game.guestName,
-              winnerName: game.hostName,
-              cost: game.cost * 2,
-              loseCardDisplay: game.guestCards
-                .map(this.getCardDisplay)
-                .join(', '),
-              winnerCardDisplay: game.hostCards
-                .map(this.getCardDisplay)
-                .join(', '),
-              winnerScore: game.hostScore.value,
-              loseScore: game.guestScore.value,
-            });
-          } else {
-            systemMessageText = gameMessages[game.result]({
-              hostName: game.hostName,
-              hostCardDisplay: game.hostCards
-                .map(this.getCardDisplay)
-                .join(', '),
-              hostScore: game.hostScore.value,
-              guestName: game.guestName,
-              guestCardDisplay: game.guestCards
-                .map(this.getCardDisplay)
-                .join(', '),
-              guestScore: game.guestScore.value,
-              cost: game.cost,
-            });
-          }
-        }
-
-        // Cập nhật tin nhắn hiện tại khi trò chơi kết thúc
-        await this.updateGameMessageOnEnd({
-          channelId: record.channelId,
-          messageId: record.messageId,
-          hostName: game.hostName,
-          guestName: game.guestName,
-        });
-
-        // Gửi tin nhắn kết quả
-        await this.sendGameResultMessage({
-          channelId: record.channelId,
-          replyToMessageId: record.messageId,
-          hostName: game.hostName,
-          guestName: game.guestName,
-          resultMessage: systemMessageText,
-        });
+        return;
       }
 
-      // Cập nhật messageId mới và trạng thái trò chơi
+      const hostCardCount = game.hostCards.length - 2;
+      const systemMessageText = this.generateTurnMessage({
+        currentPlayerName: game.hostName,
+        opponentName: game.guestName,
+        cardCount: hostCardCount,
+      });
+
+      const newMessage = await this.mezon.sendMessage({
+        type: EMessageType.CHANNEL,
+        reply_to_message_id: record.messageId,
+        payload: {
+          channel_id: record.channelId,
+          message: {
+            type: EMessagePayloadType.OPTIONAL,
+            content: {
+              t: systemMessageText,
+              components: this.createActionButtons(),
+            },
+          },
+        },
+      });
+
+      const updateMess = `${game.guestName} đã dừng. Đang chờ ${game.hostName}...`;
+      await this.updateSystemMessage(
+        record.channelId,
+        record.messageId,
+        updateMess,
+      );
+
       await this.prisma.blackJackGame.update({
         where: { id: game.id },
         data: {
-          messageId: newMessageId,
+          messageId: newMessage.message_id,
           status: game.status,
           turnOf: game.turnOf,
           isGuestStand: game.isGuestStand,
@@ -1153,22 +897,14 @@ export class SenaService {
       });
     } catch (error) {
       console.error('Error handling stand button:', error);
-      await this.mezon.updateMessage({
-        channel_id: record.channelId,
-        message_id: record.messageId,
-        content: {
-          type: EMessagePayloadType.SYSTEM,
-          content: 'Đã có lỗi xảy ra. Vui lòng thử lại!',
-        },
-      });
+      const content = 'Đã có lỗi xảy ra. Vui lòng thử lại!';
+      await this.updateSystemMessage(
+        record.channelId,
+        record.messageId,
+        content,
+      );
     }
   }
-
-  getCardDisplay = (index: number): string => {
-    const suit = SUITS[Math.floor(index / 13)];
-    const rank = RANKS[index % 13];
-    return `${rank}${suit}`;
-  };
 
   public async createDeck(data: ChannelMessage, amount: number) {
     let partnerId: string | undefined;
@@ -1180,8 +916,12 @@ export class SenaService {
         partnerId = mention.user_id;
         parterName = m.find((x) => x.startsWith('@'))?.slice(1);
         const mentionIdx = m.findIndex((x) => x.startsWith('@'));
-        amount = Number(m[mentionIdx + 1] ?? m[m.length - 1]);
-        if (isNaN(amount)) return;
+        const afterMention = m[mentionIdx + 1];
+        if (afterMention && !isNaN(Number(afterMention))) {
+          amount = Number(afterMention);
+        } else {
+          amount = 0;
+        }
       }
     } else {
       partnerId = data.references?.[0]?.message_sender_id;
@@ -1254,7 +994,7 @@ export class SenaService {
 
     if (!promiseMessage) return;
 
-    await delay(1000);
+    await this.delay(1000);
 
     if (amount < 0 || amount > 1000000 || isNaN(amount)) {
       const message = `😅 Số tiền cược không hợp lệ. Vui lòng nhập số tiền từ 0 đến 1.000.000 token`;
@@ -1289,7 +1029,7 @@ export class SenaService {
     }
 
     if (mBalance.balance < amount * 3) {
-      const message = `😅 Số dư của bạn không đủ để cược ${formatVND(amount)} token (phải ≥ ${formatVND(amount * 3)} token để phòng trường hợp x3)`;
+      const message = `😅 Số dư của bạn không đủ để cược ${SenaCaculator.formatVND(amount)} token (phải ≥ ${SenaCaculator.formatVND(amount * 3)} token để phòng trường hợp x3)`;
       await this.mezon.updateMessage({
         channel_id: promiseMessage.channel_id,
         message_id: promiseMessage.message_id,
@@ -1321,7 +1061,7 @@ export class SenaService {
     }
 
     if (pBalance.balance < amount * 3) {
-      const message = `😅 Số dư của đối thủ không đủ để cược ${formatVND(amount)} token (phải ≥ ${formatVND(amount * 3)} token để phòng trường hợp x3)`;
+      const message = `😅 Số dư của đối thủ không đủ để cược ${SenaCaculator.formatVND(amount)} token (phải ≥ ${SenaCaculator.formatVND(amount * 3)} token để phòng trường hợp x3)`;
       await this.mezon.updateMessage({
         channel_id: promiseMessage.channel_id,
         message_id: promiseMessage.message_id,
@@ -1340,7 +1080,7 @@ export class SenaService {
         content: {
           type: EMessagePayloadType.OPTIONAL,
           content: {
-            t: `Xì rách giữa ${data.username} và ${parterName}\n💰Cược ${formatVND(amount)} token. Đồng ý = click lên phím "36"`,
+            t: `Xì rách giữa ${data.username} và ${parterName}\n💰Cược ${SenaCaculator.formatVND(amount)} token. Đồng ý = click lên phím "36"`,
             components: this.createGameButtons(),
           },
         },
@@ -1363,96 +1103,34 @@ export class SenaService {
     ]);
   }
 
-  public calculateHandValue(hand: number[]): number {
-    let total = 0;
-    let aceCount = 0;
-    for (const card of hand) {
-      const rankIndex = card % 13;
-      if (rankIndex === 0) {
-        aceCount++;
-        total += 11;
-      } else if (rankIndex >= 10) {
-        total += 10;
-      } else {
-        total += rankIndex + 1;
-      }
-    }
-    while (total > 21 && aceCount > 0) {
-      total -= 10;
-      aceCount--;
-    }
-    return total;
-  }
-
-  private checkGuestOrHostHit(game: Game, userId: string) {
-    const cardIndex = game.hitCard.length - 1;
-
-    const cardString = this.getCardDisplay(cardIndex);
-
-    this.prisma.blackJackGameLogs.create({
-      data: {
-        gameId: game.id,
-        userId: userId,
-        card: cardString,
-      },
-    });
-  }
-
-  private getRewardMultiplier(game: Game, result: GAME_RESULT): number {
-    const hostScore = game.hostScore.value;
-    const guestScore = game.guestScore.value;
-
-    if (result === GAME_RESULT.HOST_WIN) {
-      if (game.hostScore.isDoubleAce) return 3;
-      if (
-        game.hostScore.isBlackjack ||
-        game.hostScore.isFiveSprits ||
-        hostScore >= DOUBLE_COST_SCORE ||
-        guestScore >= DOUBLE_COST_SCORE
-      )
-        return 2;
-      return 1;
-    }
-
-    if (result === GAME_RESULT.GUEST_WIN) {
-      if (game.guestScore.isDoubleAce) return 3;
-      if (
-        game.guestScore.isBlackjack ||
-        game.guestScore.isFiveSprits ||
-        hostScore >= DOUBLE_COST_SCORE ||
-        guestScore >= DOUBLE_COST_SCORE
-      )
-        return 2;
-      return 1;
-    }
-
-    return 0;
-  }
-
   private async updateUserBalanceAfterGame(game: Game, result: GAME_RESULT) {
-    const multiplier = this.getRewardMultiplier(game, result);
+    const multiplier = SenaCaculator.getRewardMultiplier(game, result);
     const reward = game.cost * multiplier;
+    const totalLock = game.cost * 3;
 
-    let hostReward = 0;
-    let guestReward = 0;
+    let hostChange = 0;
+    let guestChange = 0;
 
-    if (result === GAME_RESULT.HOST_WIN) {
-      hostReward = reward;
-      guestReward = -reward;
+    if (result === GAME_RESULT.DRAW) {
+      hostChange = totalLock;
+      guestChange = totalLock;
+    } else if (result === GAME_RESULT.HOST_WIN) {
+      hostChange = totalLock + reward;
+      guestChange = totalLock - reward;
     } else if (result === GAME_RESULT.GUEST_WIN) {
-      hostReward = -reward;
-      guestReward = reward;
+      hostChange = totalLock - reward;
+      guestChange = totalLock + reward;
     }
 
     try {
       const balancePromises = [
         this.prisma.userBalance.update({
           where: { userId: game.hostId },
-          data: { balance: { increment: hostReward } },
+          data: { balance: { increment: hostChange } },
         }),
         this.prisma.userBalance.update({
           where: { userId: game.guestId },
-          data: { balance: { increment: guestReward } },
+          data: { balance: { increment: guestChange } },
         }),
       ];
 
@@ -1520,7 +1198,7 @@ export class SenaService {
         });
         content = `TransactionLogs: 
       - User: ${user?.username || 'Không tìm thấy người dùng'}
-      - Amount: ${formatVND(transaction.amount)}
+      - Amount: ${SenaCaculator.formatVND(transaction.amount)}
       - Created At: ${transaction.createdAt.toLocaleDateString('vi-VN', {
         year: 'numeric',
         month: '2-digit',
@@ -1613,7 +1291,7 @@ export class SenaService {
         content = `TransactionSendLogs:
           - From: ${transactionSend.userId} (${fromUser?.username || 'unknown'})
           - To: ${transactionSend.toUserId} (${toUser?.username || 'unknown'})
-          - Amount: ${formatVND(transactionSend.amount)}
+          - Amount: ${SenaCaculator.formatVND(transactionSend.amount)}
           - Note: ${transactionSend.note}
           - Created At: ${transactionSend.createdAt.toLocaleDateString(
             'vi-VN',
@@ -1717,15 +1395,12 @@ export class SenaService {
       content += `${i + 1}. ${username}: ${topWinners[i]._count.id} lần \n`;
     }
 
-    await this.mezon.sendMessage({
-      type: EMessageType.CHANNEL,
-      reply_to_message_id: data.message_id,
-      payload: {
-        channel_id: data.channel_id,
-        message: {
-          type: EMessagePayloadType.SYSTEM,
-          content,
-        },
+    await this.mezon.updateMessage({
+      channel_id: data.channel_id,
+      message_id: placeholder.message_id,
+      content: {
+        type: EMessagePayloadType.SYSTEM,
+        content,
       },
     });
   }
@@ -1808,6 +1483,220 @@ export class SenaService {
         message: {
           type: EMessagePayloadType.SYSTEM,
           content: `🎲 Kết quả cuối cùng của ván bài giữa: ${hostName} và ${guestName} là: \n${resultMessage}`,
+        },
+      },
+    });
+  }
+
+  private async handleEndGameNgulinh(game: Game, record: any) {
+    const hostFive = game.hostScore.isFiveSprits;
+    const guestFive = game.guestScore.isFiveSprits;
+    let resultMessage = '';
+
+    if (guestFive && hostFive) {
+      await this.updateUserBalanceAfterGame(game, GAME_RESULT.DRAW);
+      resultMessage = `Cả ${game.guestName} và ${game.hostName} đều ngũ linh. HÒA!`;
+    } else if (guestFive) {
+      await this.updateUserBalanceAfterGame(game, GAME_RESULT.GUEST_WIN);
+      resultMessage = gameMessages.fiveSprits({
+        winnerName: game.guestName,
+        loserName: game.hostName,
+        cost: game.cost * 2,
+      });
+    } else if (hostFive) {
+      await this.updateUserBalanceAfterGame(game, GAME_RESULT.HOST_WIN);
+      resultMessage = gameMessages.fiveSprits({
+        winnerName: game.hostName,
+        loserName: game.guestName,
+        cost: game.cost * 2,
+      });
+    } else {
+      resultMessage = gameMessages[game.result]({
+        hostName: game.hostName,
+        hostCardDisplay: game.hostCards
+          .map(SenaCaculator.getCardDisplay)
+          .join(', '),
+        hostScore: game.hostScore.value,
+        guestName: game.guestName,
+        guestCardDisplay: game.guestCards
+          .map(SenaCaculator.getCardDisplay)
+          .join(', '),
+        guestScore: game.guestScore.value,
+        cost: game.cost,
+      });
+      await this.updateUserBalanceAfterGame(game, game.result);
+    }
+
+    await this.updateGameMessageOnEnd({
+      channelId: record.channelId,
+      messageId: record.messageId,
+      hostName: game.hostName,
+      guestName: game.guestName,
+    });
+
+    await this.sendGameResultMessage({
+      channelId: record.channelId,
+      replyToMessageId: record.messageId,
+      hostName: game.hostName,
+      guestName: game.guestName,
+      resultMessage,
+    });
+  }
+
+  private async refundedLock(record: BlackJackGame, totalLock: number) {
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        await Promise.all([
+          tx.userBalance.update({
+            where: { userId: record.hostId },
+            data: { balance: { increment: totalLock } },
+          }),
+          tx.userBalance.update({
+            where: { userId: record.guestId },
+            data: { balance: { increment: totalLock } },
+          }),
+          tx.transactionLogs.create({
+            data: {
+              transactionId: `refund_${record.id}_${Date.now()}`,
+              userId: record.hostId,
+              amount: totalLock,
+              type: ETransactionType.REFUND,
+            },
+          }),
+          tx.transactionLogs.create({
+            data: {
+              transactionId: `refund_${record.id}_${Date.now()}`,
+              userId: record.guestId,
+              amount: totalLock,
+              type: ETransactionType.REFUND,
+            },
+          }),
+        ]);
+      });
+    } catch (refundError) {
+      console.error('Error refunding lock:', refundError);
+      await this.mezon.sendMessage({
+        type: EMessageType.CHANNEL,
+        payload: {
+          channel_id: record.channelId,
+          message: {
+            type: EMessagePayloadType.SYSTEM,
+            content:
+              'Lỗi hoàn tiền lock, vui lòng liên hệ admin để được hỗ trợ!',
+          },
+        },
+      });
+    }
+  }
+
+  private async handleEarlyWin(
+    game: Game,
+    record: any,
+    earlyWin: GAME_RESULT,
+  ): Promise<void> {
+    game.end();
+    await this.updateUserBalanceAfterGame(game, earlyWin);
+
+    const content = this.generateEarlyWinMessage(game, earlyWin);
+
+    await Promise.all([
+      this.mezon.updateMessage({
+        channel_id: record.channelId,
+        message_id: record.messageId,
+        content: {
+          type: EMessagePayloadType.SYSTEM,
+          content,
+        },
+      }),
+      this.mezon.sendMessage({
+        type: EMessageType.CHANNEL,
+        reply_to_message_id: record.messageId,
+        payload: {
+          channel_id: record.channelId,
+          message: {
+            type: EMessagePayloadType.SYSTEM,
+            content,
+          },
+        },
+      }),
+    ]);
+  }
+
+  private generateEarlyWinMessage(game: Game, earlyWin: GAME_RESULT): string {
+    if (earlyWin === GAME_RESULT.HOST_WIN && game.hostScore.isDoubleAce) {
+      return gameMessages.doubleAce({
+        winnerName: game.hostName,
+        loserName: game.guestName,
+        cost: game.cost * 3,
+      });
+    } else if (
+      earlyWin === GAME_RESULT.GUEST_WIN &&
+      game.guestScore.isDoubleAce
+    ) {
+      return gameMessages.doubleAce({
+        winnerName: game.guestName,
+        loserName: game.hostName,
+        cost: game.cost * 3,
+      });
+    } else if (
+      earlyWin === GAME_RESULT.HOST_WIN &&
+      game.hostScore.isBlackjack
+    ) {
+      return gameMessages.blackjack({
+        winnerName: game.hostName,
+        loserName: game.guestName,
+        cost: game.cost * 2,
+      });
+    } else if (
+      earlyWin === GAME_RESULT.GUEST_WIN &&
+      game.guestScore.isBlackjack
+    ) {
+      return gameMessages.blackjack({
+        winnerName: game.guestName,
+        loserName: game.hostName,
+        cost: game.cost * 2,
+      });
+    }
+    return gameMessages[earlyWin]({
+      hostName: game.hostName,
+      hostCardDisplay: game.hostCards
+        .map(SenaCaculator.getCardDisplay)
+        .join(', '),
+      hostScore: game.hostScore.value,
+      guestName: game.guestName,
+      guestCardDisplay: game.guestCards
+        .map(SenaCaculator.getCardDisplay)
+        .join(', '),
+      guestScore: game.guestScore.value,
+      cost: game.cost,
+    });
+  }
+
+  async handlOffWithDraw(data: ChannelMessage) {
+    await this.redisRepository.set(WR_SYSTEM, BLOCK_WITHDRAW_KEY, '1');
+    await this.mezon.sendMessage({
+      type: EMessageType.CHANNEL,
+      reply_to_message_id: data.message_id,
+      payload: {
+        channel_id: data.channel_id,
+        message: {
+          type: EMessagePayloadType.SYSTEM,
+          content: 'Đã tạm khóa chức năng rút tiền.',
+        },
+      },
+    });
+  }
+
+  async handlOnWithDraw(data: ChannelMessage) {
+    await this.redisRepository.delete(WR_SYSTEM, BLOCK_WITHDRAW_KEY);
+    await this.mezon.sendMessage({
+      type: EMessageType.CHANNEL,
+      reply_to_message_id: data.message_id,
+      payload: {
+        channel_id: data.channel_id,
+        message: {
+          type: EMessagePayloadType.SYSTEM,
+          content: 'Đã mở lại chức năng rút tiền.',
         },
       },
     });

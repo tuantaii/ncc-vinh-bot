@@ -1,6 +1,8 @@
 export const ETransactionType = {
     DEPOSIT: "DEPOSIT",
-    WITHDRAW: "WITHDRAW"
+    WITHDRAW: "WITHDRAW",
+    REFUND: "REFUND",
+    LOCKS: "LOCKS"
 } as const;
 export type ETransactionType = (typeof ETransactionType)[keyof typeof ETransactionType];
 export const EMessageRole = {
