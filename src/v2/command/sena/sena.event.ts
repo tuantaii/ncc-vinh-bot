@@ -2,7 +2,6 @@ import { Injectable } from '@nestjs/common';
 import { SenaService } from './sena.service';
 import { OnEvent } from '@nestjs/event-emitter';
 import { ChannelMessage, Events, TokenSentEvent } from 'mezon-sdk';
-import { MessageButtonClickedEvent } from './types';
 import { MezonService } from 'src/v2/mezon/mezon.service';
 import {
   CHECK_BALANCE_COMMAND,
@@ -10,6 +9,7 @@ import {
   WITHDRAW_COMMAND,
   PLAY_COMMAND,
 } from './constansts';
+import { MessageButtonClickedEvent } from 'src/types/types';
 
 @Injectable()
 export class SenaEvent {

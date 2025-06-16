@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { MessageButtonClickedEvent, TokenSentEventI } from './types';
 import {
   ChannelMessage,
   ChannelMessageAck,
@@ -20,7 +19,11 @@ import { random } from 'src/common/utils/helper';
 import { EMessageMode } from 'src/common/enums/mezon.enum';
 import { GameMetadata } from './types/game';
 import { Game } from './game';
-import { EMessagePayloadType, EMessageType } from 'src/v2/mezon/types/mezon';
+import {
+  EMessageType,
+  EMessagePayloadType,
+  MessageButtonClickedEvent,
+} from 'src/types/types';
 
 const SUITS = ['♠', '♥', '♦', '♣'];
 const RANKS = [

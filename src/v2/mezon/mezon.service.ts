@@ -12,7 +12,7 @@ import {
   MezonSendMessage,
   MezonSendToken,
   MezonUpdateMessage,
-} from './types/mezon';
+} from 'src/types/types';
 
 @Injectable()
 export class MezonService {

@@ -9,6 +9,8 @@ import { RedisModule } from './core/redis/redis.module';
 import { MainV2Module } from './v2/main.module';
 import { BotModule } from './v2/bot/bot.module';
 import { SenaModule } from './v2/command/sena/sena.module';
+import { MonzeModule } from './v2/command/monze/monze.module';
+import { CoingeckoService } from './v2/coingecko/coingecko.service';
 
 @Module({
   imports: [
@@ -23,8 +25,9 @@ import { SenaModule } from './v2/command/sena/sena.module';
     MainV2Module,
     BotModule,
     SenaModule,
+    MonzeModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, CoingeckoService],
 })
 export class AppModule {}

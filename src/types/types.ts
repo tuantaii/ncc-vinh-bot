@@ -1,4 +1,5 @@
 import { ApiMessageAttachment, ChannelMessageContent } from 'mezon-sdk';
+import { TokenSentEvent } from 'mezon-sdk';
 
 export type MezonSendMessageBase = {
   type: EMessageType.CHANNEL | EMessageType.DM;
@@ -65,3 +66,18 @@ export type MezonSendToken = {
   amount: number;
   note?: string;
 };
+
+export interface TokenSentEventI extends TokenSentEvent {
+  user_id: string;
+  amount: number;
+  transaction_id: string;
+}
+
+export interface MessageButtonClickedEvent {
+  message_id: string;
+  channel_id: string;
+  button_id: string;
+  sender_id: string;
+  user_id: string;
+  extra_data: string;
+}
