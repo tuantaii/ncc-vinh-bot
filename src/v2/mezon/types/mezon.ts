@@ -1,4 +1,8 @@
-import { ApiMessageAttachment, ChannelMessageContent } from 'mezon-sdk';
+import {
+  ChannelMessageContent,
+  ApiMessageAttachment,
+  ApiMessageMention,
+} from 'mezon-sdk';
 
 export type MezonSendMessageBase = {
   type: EMessageType.CHANNEL | EMessageType.DM;
@@ -11,7 +15,8 @@ export type MezonSendChannelMessage = MezonSendMessageBase & {
   payload: {
     channel_id: string;
     message: MezonPayloadContent;
-    images?: string[] | ApiMessageAttachment[];
+    images?: (string | ApiMessageAttachment)[];
+    mentions?: ApiMessageMention[];
   };
 };
 
@@ -21,7 +26,19 @@ export type MezonSendDMMessage = MezonSendMessageBase & {
     clan_id: string;
     user_id: string;
     message: MezonPayloadContent;
-    images?: string[] | ApiMessageAttachment[];
+    images?: (string | ApiMessageAttachment)[];
+    mentions?: ApiMessageMention[];
+  };
+};
+
+export type MezonEmphemeralMessage = MezonSendMessageBase & {
+  clan_id?: string;
+  type: EMessageType.CHANNEL;
+  payload: {
+    channel_id: string;
+    message: MezonPayloadContent;
+    images?: (string | ApiMessageAttachment)[];
+    mentions?: ApiMessageMention[];
   };
 };
 
@@ -58,6 +75,10 @@ export type MezonUpdateMessage = {
   channel_id: string;
   message_id: string;
   content: MezonPayloadContent;
+  mentions?: {
+    user_id: string;
+    username?: string;
+  }[];
 };
 
 export type MezonSendToken = {

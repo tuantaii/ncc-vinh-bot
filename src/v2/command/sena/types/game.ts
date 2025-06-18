@@ -1,5 +1,3 @@
-import { EJackGameStatus } from '@prisma/client';
-
 interface GameMetadata {
   [key: string]: string | number | boolean | object | null | undefined;
   hostMessageId?: string;
@@ -9,3 +7,10 @@ interface GameMetadata {
 }
 
 export type { GameMetadata };
+
+export type BLACKJACK_GAME_LOGS = {
+  id: number;
+  game_id: number;
+  user_id: string;
+  card: string;
+};

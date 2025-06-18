@@ -78,6 +78,8 @@ model TransactionLogs {
 enum ETransactionType {
   DEPOSIT
   WITHDRAW
+  REFUND
+  LOCKS
 }
 
 model TransactionSendLogs {
@@ -125,6 +127,8 @@ model BlackJackGame {
   isGuestStand    Boolean         @default(false)
 
   metadata Json?
+
+  @@index([status, updatedAt])
 }
 
 model BlackJackGameLogs {

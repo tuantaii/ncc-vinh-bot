@@ -86,6 +86,11 @@ export class MezonService {
     }
 
     const args: any[] = [newMessage];
+
+    if (data.payload.mentions && data.payload.mentions.length > 0) {
+      args.push(data.payload.mentions);
+    }
+
     if (data.payload.images && Array.isArray(data.payload.images)) {
       const attachments: ApiMessageAttachment[] = [];
       for (const image of data.payload.images) {
@@ -108,16 +113,19 @@ export class MezonService {
         return (await sendFunction(...args)) as ChannelMessageAck;
 
       case EMessagePayloadType.SYSTEM:
-        return (await sendFunction({
-          ...newMessage,
-          mk: [
-            {
-              type: EMarkdownType.PRE,
-              s: 0,
-              e: data.payload.message.content.length,
-            },
-          ],
-        })) as ChannelMessageAck;
+        return (await sendFunction(
+          {
+            ...newMessage,
+            mk: [
+              {
+                type: EMarkdownType.PRE,
+                s: 0,
+                e: data.payload.message.content.length,
+              },
+            ],
+          },
+          data.payload.mentions,
+        )) as ChannelMessageAck;
 
       case EMessagePayloadType.OPTIONAL:
         return (await sendFunction(...args)) as ChannelMessageAck;
@@ -165,6 +173,70 @@ export class MezonService {
     } else if (data.content.type === EMessagePayloadType.OPTIONAL) {
       return message.update(data.content.content);
     }
+  }
+
+  async sendMessageEphemeral(
+    data: MezonSendMessage & { user_id: string; reference_message_id?: string },
+  ) {
+    const root = this.mezonClient;
+
+    if (data.type !== EMessageType.CHANNEL) {
+      throw new Error('Ephemeral message chỉ hỗ trợ gửi vào channel');
+    }
+
+    const channel = await root.channels.fetch(data.payload.channel_id);
+    if (!channel?.id) {
+      throw new Error(`Channel ${data.payload.channel_id} not found`);
+    }
+
+    let content: ChannelMessageContent;
+    if (data.payload.message.type === EMessagePayloadType.OPTIONAL) {
+      content = data.payload.message.content;
+    } else {
+      content = {
+        t: data.payload.message.content,
+        mk:
+          data.payload.message.type === EMessagePayloadType.NORMAL_TEXT
+            ? []
+            : [
+                {
+                  type: EMarkdownType.PRE,
+                  s: 0,
+                  e: data.payload.message.content.length,
+                },
+              ],
+      };
+    }
+
+    let attachments: ApiMessageAttachment[] | undefined = undefined;
+    if (data.payload.images && Array.isArray(data.payload.images)) {
+      attachments = data.payload.images.map((image) =>
+        typeof image === 'string'
+          ? {
+              url: image,
+              filename: 'image.png',
+              width: 200,
+              height: 200,
+            }
+          : image,
+      );
+    }
+
+    return await channel.sendEphemeral(
+      data.user_id,
+      content,
+      data.reply_to_message_id,
+      data.payload.mentions,
+      attachments,
+    );
+  }
+
+  async deleteMessage(channel_id: string, message_id: string) {
+    const channel = await this.mezonClient.channels.fetch(channel_id);
+    if (!channel?.id) throw new Error(`Channel ${channel_id} not found`);
+    const message = await channel.messages.fetch(message_id);
+    if (!message?.id) throw new Error(`Message ${message_id} not found`);
+    await message.delete();
   }
 
   async sendToken(data: MezonSendToken) {

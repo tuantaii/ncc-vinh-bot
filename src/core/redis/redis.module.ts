@@ -7,6 +7,6 @@ import { Global } from '@nestjs/common';
 @Module({
   imports: [],
   providers: [redisClientFactory, RedisRepository],
-  exports: [RedisRepository],
+  exports: [redisClientFactory, RedisRepository],
 })
 export class RedisModule {}

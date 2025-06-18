@@ -9,6 +9,7 @@ export const redisClientFactory: FactoryProvider<Redis> = {
       host: configService.get<string>('REDIS_HOST'),
       port: parseInt(configService.get<string>('REDIS_PORT')!),
       password: configService.get<string>('REDIS_PASSWORD'),
+      maxRetriesPerRequest: null,
     });
 
     redisInstance.on('error', (e) => {
