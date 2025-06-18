@@ -83,9 +83,11 @@ export class BotMessageProcessor implements OnModuleInit {
           await this.messageService.handleHDSD(data);
         } else if (data.content.t === STATISTICS_COMMAND) {
           await this.messageService.handleTop10(data);
-        } else if (data.content.t) {
-          await this.handleUnknownCommand(data);
         }
+        // tắt tạm suggestion commands
+        //  else if (data.content.t) {
+        //   await this.handleUnknownCommand(data);
+        // }
       },
       { connection } as QueueOptions,
     );

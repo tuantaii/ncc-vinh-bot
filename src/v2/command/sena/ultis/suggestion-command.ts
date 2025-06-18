@@ -21,7 +21,7 @@ export function suggestCommand(
 
   const suggestions = matches
     .filter((match) => match.score >= minThreshold)
-    .map((match) => `*${match.choice}`); // Thêm lại dấu * cho gợi ý
+    .map((match) => `*${match.choice}`);
 
   return suggestions.slice(0, 3);
 }
