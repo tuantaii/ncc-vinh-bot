@@ -1,29 +1,28 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { SenaService } from './sena.service';
 import { OnEvent } from '@nestjs/event-emitter';
+import { Queue } from 'bullmq';
 import { ChannelMessage, Events, TokenSentEvent } from 'mezon-sdk';
-import { MessageButtonClickedEvent } from './types';
-import { MezonService } from 'src/v2/mezon/mezon.service';
 import {
-  CHECK_BALANCE_COMMAND,
   MYSELF_COMMAND,
-  WITHDRAW_COMMAND,
-  PLAY_COMMAND,
-  CHECK_TRANSACTION_COMMAND,
-  CHECK_TRANSACTION_SEND_COMMAND,
-  HELP_COMMAND,
-  STATISTICS_COMMAND,
+  NHA_CAI,
   OFF_WITHDRAW,
   ON_WITHDRAW,
+  PLAY_COMMAND,
+  WITHDRAW_COMMAND,
 } from './constansts';
-import { EMessagePayloadType, EMessageType } from 'src/v2/mezon/types/mezon';
-import { Queue } from 'bullmq';
+import { MessageButtonClickedEvent } from './types';
+import {
+  SenaGameService,
+  SenaMessageService,
+  SenaWalletService,
+} from './service';
 
 @Injectable()
 export class SenaEvent {
   constructor(
-    private readonly senaService: SenaService,
-    private readonly mezon: MezonService,
+    private readonly gameService: SenaGameService,
+    private readonly walletService: SenaWalletService,
+    private readonly messageService: SenaMessageService,
     @Inject('WITHDRAW_QUEUE') private readonly withdrawQueue: Queue,
     @Inject('DEPOSIT_QUEUE') private readonly depositQueue: Queue,
     @Inject('BUTTON-ACTION_QUEUE') private readonly buttonActionQueue: Queue,
@@ -42,10 +41,11 @@ export class SenaEvent {
 
   @OnEvent(Events.ChannelMessage)
   async handleChannelMessageButtonClicked(data: ChannelMessage) {
-    if (data.content.t?.startsWith(PLAY_COMMAND)) {
-      const numberInString = data.content.t.match(/\d+/);
+    const cmd = data.content.t?.split(' ')[0];
+    if (cmd === PLAY_COMMAND) {
+      const numberInString = data.content.t?.match(/\d+/);
       const amount = numberInString ? parseInt(numberInString[0]) : 0;
-      await this.senaService.createDeck(data, amount);
+      await this.gameService.createDeck(data, amount);
     } else if (data.content.t?.startsWith(WITHDRAW_COMMAND)) {
       const numberInString = data.content.t.match(/\d+/);
       if (numberInString) {
@@ -55,9 +55,11 @@ export class SenaEvent {
         }
       }
     } else if (data.content.t === OFF_WITHDRAW) {
-      await this.senaService.handlOffWithDraw(data);
+      await this.walletService.handleOffWithDraw(data);
     } else if (data.content.t === ON_WITHDRAW) {
-      await this.senaService.handlOnWithDraw(data);
+      await this.walletService.handleOnWithDraw(data);
+    } else if (data.content.t === NHA_CAI) {
+      await this.messageService.handleNhacaiCommand(data);
     }
   }
 

@@ -1,14 +1,14 @@
 import { Inject, Injectable, OnModuleInit } from '@nestjs/common';
 import { Job, QueueOptions, Worker } from 'bullmq';
 import Redis from 'ioredis';
-import { SenaService } from '../sena.service';
+import { SenaWalletService } from '../service';
 
 @Injectable()
 export class WithdrawProcessor implements OnModuleInit {
   private worker: Worker;
 
   constructor(
-    private readonly senaService: SenaService,
+    private readonly walletService: SenaWalletService,
     @Inject('RedisClient') private readonly redis: Redis,
   ) {}
 
@@ -18,7 +18,7 @@ export class WithdrawProcessor implements OnModuleInit {
       'withdraw-queue',
       async (job: Job) => {
         const { data, amount } = job.data;
-        await this.senaService.withdraw(data, amount);
+        await this.walletService.withdraw(data, amount);
       },
       {
         connection,

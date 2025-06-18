@@ -36,17 +36,17 @@ export class SenaChedule {
             type: EMessagePayloadType.SYSTEM,
             content: `⏰ Game giữa ${game.hostName} và ${game.guestName} đã bị hủy do chờ quá lâu.`,
           },
-        });
-        await this.mezon.sendMessage({
-          type: EMessageType.CHANNEL,
-          reply_to_message_id: mess.id,
-          payload: {
-            channel_id: game.channelId,
-            message: {
-              type: EMessagePayloadType.SYSTEM,
-              content: `⏰ Game giữa ${game.hostName} và ${game.guestName} đã bị hủy do chờ quá lâu.`,
-            },
-          },
+          // });
+          // await this.mezon.sendMessage({
+          //   type: EMessageType.CHANNEL,
+          //   reply_to_message_id: mess.id,
+          //   payload: {
+          //     channel_id: game.channelId,
+          //     message: {
+          //       type: EMessagePayloadType.SYSTEM,
+          //       content: `⏰ Game giữa ${game.hostName} và ${game.guestName} đã bị hủy do chờ quá lâu.`,
+          //     },
+          //   },
         });
       } catch (err) {
         console.error('Lỗi khi update hoặc gửi message:', err);

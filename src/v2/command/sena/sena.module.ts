@@ -11,19 +11,27 @@ import {
   WithdrawProcessor,
 } from './queue';
 import { SenaEvent } from './sena.event';
-import { SenaService } from './sena.service';
 import { SenaChedule } from './ultis';
+import {
+  SenaGameService,
+  SenaMessageService,
+  SenaTransactionService,
+  SenaWalletService,
+} from './service';
 
 @Module({
   imports: [PrismaModule, MezonModule, RedisModule],
   providers: [
-    SenaService,
     SenaEvent,
     WithdrawProcessor,
     DepositProcessor,
     ButtonActionProcessor,
     BotMessageProcessor,
     SenaChedule,
+    SenaTransactionService,
+    SenaMessageService,
+    SenaGameService,
+    SenaWalletService,
     {
       provide: 'DEPOSIT_QUEUE',
       useFactory: (redis: Redis) => {
@@ -61,6 +69,12 @@ import { SenaChedule } from './ultis';
       inject: ['RedisClient'],
     },
   ],
-  exports: [SenaService, SenaEvent],
+  exports: [
+    SenaEvent,
+    SenaWalletService,
+    SenaGameService,
+    SenaTransactionService,
+    SenaMessageService,
+  ],
 })
 export class SenaModule {}

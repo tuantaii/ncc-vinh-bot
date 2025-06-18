@@ -1,5 +1,3 @@
-import { EJackGameStatus } from '@prisma/client';
-
 interface GameMetadata {
   [key: string]: string | number | boolean | object | null | undefined;
   hostMessageId?: string;

@@ -14,6 +14,22 @@ export const ID_BOT = '1840692108470521856';
 export const OFF_WITHDRAW = '*offrut';
 export const ON_WITHDRAW = '*onrut';
 export const BLOCK_WITHDRAW_KEY = 'BLOCK_WITHDRAW_KEY';
+export const NHA_CAI = '*nhacai';
+export const MYIMAGE_QR =
+  'https://myself-images.s3.ap-southeast-2.amazonaws.com/z6714769905770_b269e962c4ccf09d6428ca0da5e62d97.jpg';
+
+export const VALID_COMMANDS = [
+  MYSELF_COMMAND,
+  PLAY_COMMAND,
+  CHECK_BALANCE_COMMAND,
+  WITHDRAW_COMMAND,
+  CHECK_TRANSACTION_COMMAND,
+  CHECK_TRANSACTION_SEND_COMMAND,
+  STATISTICS_COMMAND,
+  OFF_WITHDRAW,
+  ON_WITHDRAW,
+  NHA_CAI,
+];
 
 export const HDSD = `Hướng dẫn sử dụng:
 1. ${MYSELF_COMMAND}: Giới thiệu về Sena Bot
@@ -27,7 +43,7 @@ export const HDSD = `Hướng dẫn sử dụng:
 Để nạp tiền, hãy chuyển token trực tiếp cho SENA.
 --------------------------------------------------
 Cách chơi game Xì Dách:
-1. Reply một người nào đó với cú pháp *jack <số tiền> để bắt đầu chơi game Xì Dách với Sena Bot.
+1. Reply hoặc tag một người nào đó với cú pháp *jack <@username> <số tiền> để bắt đầu chơi game Xì Dách với Sena Bot.
 2. Bạn sẽ nhận được 2 lá bài đầu tiên, và có thể chọn rút thêm bài hoặc dằn.
 3. Mục tiêu là đạt được tổng điểm gần 21 nhất mà không vượt quá 21.
 4. Nếu bạn đạt được Xì Bàng (2 lá bài đầu tiên là AA), bạn sẽ thắng ngay lập tức. và thắng x3 số tiền cược.
@@ -100,8 +116,8 @@ export const gameMessages = {
     isDoubleAce?: boolean;
   }) =>
     data.isDoubleAce
-      ? `Bài của ${data.userName} là ${data.cardDisplay} 👉 XÌ BÀNNNNNNN làm bố tất cả`
-      : `Bài của ${data.userName} là ${data.cardDisplay}, Tổng điểm là ${data.score}`,
+      ? `\nBài của ${data.userName} là ${data.cardDisplay} 👉 XÌ BÀNNNNNNN làm bố tất cả`
+      : `\nBài của ${data.userName} là ${data.cardDisplay}, Tổng điểm là ${data.score}`,
 
   overScoreDoubleCost: (data: {
     winnerName: string;
