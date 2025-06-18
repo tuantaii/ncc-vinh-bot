@@ -28,7 +28,7 @@ export class SenaMessageService {
   }
 
   async handleNhacaiCommand(data: ChannelMessage) {
-    const content = `Nhà cái đây! 😎\n`;
+    const content = `Nhà cái đây! 😎`;
 
     const result = await this.mezon.sendMessage({
       type: EMessageType.CHANNEL,
