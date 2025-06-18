@@ -83,6 +83,13 @@ export class SenaGameService {
     const { partnerId, partnerName, parsedAmount } =
       SenaGameService.parsePartnerInfo(data, amount);
 
+    if (partnerName === process.env.BOT_NAME) {
+      return this.messageService.sendSystemMessage(
+        data.channel_id,
+        `😅 Mày không thể chơi game được với tao!!! Kiếm người khác chơi đi mày`,
+      );
+    }
+
     amount = parsedAmount;
 
     if (data.sender_id === partnerId) {

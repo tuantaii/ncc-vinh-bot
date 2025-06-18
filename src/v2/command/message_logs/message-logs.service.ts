@@ -3,7 +3,6 @@ import { OnEvent } from '@nestjs/event-emitter';
 import { Events } from 'mezon-sdk';
 import { ChannelMessage } from 'mezon-sdk/dist/cjs/api/api';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { BOT_NAME } from '../sena/constansts';
 
 @Injectable()
 export class SenaLogService {
