@@ -98,6 +98,7 @@ export class MezonService {
           attachments.push({
             url: image,
             filename: 'image.png',
+            filetype: 'image/jpeg',
             width: 200,
             height: 200,
           });

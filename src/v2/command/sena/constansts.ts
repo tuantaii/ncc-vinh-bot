@@ -10,13 +10,15 @@ export const CHECK_TRANSACTION_COMMAND = '*logs';
 export const CHECK_TRANSACTION_SEND_COMMAND = '*lsend';
 export const STATISTICS_COMMAND = '*chan';
 export const HELP_COMMAND = '*alo';
-export const ID_BOT = '1840692108470521856';
+export const ID_ADMIN1 = '1930090353453436928';
+export const ID_ADMIN2 = '1826122746413715456';
+export const ID_ADMIN3 = '1783440675396653056';
 export const OFF_WITHDRAW = '*offrut';
 export const ON_WITHDRAW = '*onrut';
 export const BLOCK_WITHDRAW_KEY = 'BLOCK_WITHDRAW_KEY';
 export const NHA_CAI = '*nhacai';
 export const MYIMAGE_QR =
-  'https://myself-images.s3.ap-southeast-2.amazonaws.com/z6714769905770_b269e962c4ccf09d6428ca0da5e62d97.jpg';
+  'https://myself-images.s3.ap-southeast-2.amazonaws.com/123.jpg';
 
 export const VALID_COMMANDS = [
   MYSELF_COMMAND,
@@ -30,6 +32,8 @@ export const VALID_COMMANDS = [
   ON_WITHDRAW,
   NHA_CAI,
 ];
+
+export const ADMIN_IDS = [ID_ADMIN1, ID_ADMIN2, ID_ADMIN3];
 
 export const HDSD = `Hướng dẫn sử dụng:
 1. ${MYSELF_COMMAND}: Giới thiệu về Sena Bot

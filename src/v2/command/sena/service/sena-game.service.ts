@@ -5,17 +5,24 @@ import {
   EButtonMessageStyle,
   EMessageComponentType,
 } from 'mezon-sdk';
+import { EMessageMode } from 'src/common/enums/mezon.enum';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { MezonService } from 'src/v2/mezon/mezon.service';
 import { EMessagePayloadType, EMessageType } from 'src/v2/mezon/types/mezon';
-import { GAME_RESULT, gameMessages, MAX_CARDS, MIN_SCORE } from '../constansts';
+import {
+  DOUBLE_COST_SCORE,
+  GAME_RESULT,
+  gameMessages,
+  MAX_CARDS,
+  MAX_SCORE,
+  MIN_SCORE,
+} from '../constansts';
 import { Game } from '../game';
 import { MessageButtonClickedEvent } from '../types';
 import { GameMetadata } from '../types/game';
 import { ButtonKey, SenaCaculator } from '../ultis';
 import { SenaMessageService } from './sena-message.service';
 import { SenaWalletService } from './sena-wallet.service';
-import { EMessageMode } from 'src/common/enums/mezon.enum';
 
 @Injectable()
 export class SenaGameService {
@@ -304,19 +311,10 @@ export class SenaGameService {
 
     try {
       await this.prisma.$transaction(async (tx) => {
-        const [host, guest] = await Promise.all([
+        await Promise.all([
           tx.userBalance.findUnique({ where: { userId: record.hostId } }),
           tx.userBalance.findUnique({ where: { userId: record.guestId } }),
         ]);
-
-        if (
-          !host ||
-          !guest ||
-          host.balance < totalLock ||
-          guest.balance < totalLock
-        ) {
-          throw new Error('Số dư không đủ để lock tiền cược x3');
-        }
 
         await Promise.all([
           tx.userBalance.update({
@@ -362,8 +360,6 @@ export class SenaGameService {
       });
 
       game.startGame();
-
-      // game.hostCards = [0, 13];
 
       const [guestCardsString, hostCardsString] = [
         game.guestCards.map(SenaCaculator.getCardDisplay).join(', '),
@@ -480,7 +476,7 @@ export class SenaGameService {
         (isGuestTurn ? game.guestCards : game.hostCards).length === MAX_CARDS;
 
       if (isEndGame) {
-        await this.handleEndGameNgulinh(game, record);
+        await this.handleEndGame(game, record);
       } else if (isChangeTurn) {
         const hostCardCount = game.hostCards.length - 2;
         const { content: systemMessageText, mentions } =
@@ -641,7 +637,7 @@ export class SenaGameService {
       game.stand();
 
       if (game.status === EJackGameStatus.ENDED) {
-        await this.handleEndGameNgulinh(game, record);
+        await this.handleEndGame(game, record);
         await this.prisma.blackJackGame.update({
           where: { id: game.id },
           data: {
@@ -710,60 +706,87 @@ export class SenaGameService {
     }
   }
 
-  async handleEndGameNgulinh(game: Game, record: any) {
-    const hostFive = game.hostScore.isFiveSprits;
-    const guestFive = game.guestScore.isFiveSprits;
-    const content =
-      `Bài của ${game.hostName} là ${game.hostCards.map(SenaCaculator.getCardDisplay).join(', ')} => Tổng: ${game.hostScore.value}.\n` +
-      `Bài của ${game.guestName} là ${game.guestCards.map(SenaCaculator.getCardDisplay).join(', ')} => Tổng: ${game.guestScore.value}.\n`;
+  async handleEndGame(game: Game, record: any) {
+    const hostOverScore = game.hostScore.value >= DOUBLE_COST_SCORE;
+    const guestOverScore = game.guestScore.value >= DOUBLE_COST_SCORE;
+    const hostBust = game.hostScore.value > MAX_SCORE;
+    const guestBust = game.guestScore.value > MAX_SCORE;
+
     let resultMessage = '';
 
-    if (guestFive && hostFive) {
-      await this.walletService.updateUserBalanceAfterGame(
-        game,
-        GAME_RESULT.DRAW,
-      );
-      resultMessage =
-        content + `Cả ${game.guestName} và ${game.hostName} đều ngũ linh. HÒA!`;
-    } else if (guestFive) {
-      await this.walletService.updateUserBalanceAfterGame(
-        game,
-        GAME_RESULT.GUEST_WIN,
-      );
-      resultMessage =
-        content +
-        gameMessages.fiveSprits({
+    const fiveSpiritsResult = await this.handleFiveSpirits(game);
+    if (fiveSpiritsResult.result) {
+      resultMessage = fiveSpiritsResult.resultMessage;
+    } else {
+      if (hostBust && guestBust) {
+        await this.walletService.updateUserBalanceAfterGame(
+          game,
+          GAME_RESULT.DRAW,
+        );
+        resultMessage = gameMessages[GAME_RESULT.DRAW]({
+          hostName: game.hostName,
+          hostCardDisplay: game.hostCards
+            .map(SenaCaculator.getCardDisplay)
+            .join(', '),
+          hostScore: game.hostScore.value,
+          guestName: game.guestName,
+          guestCardDisplay: game.guestCards
+            .map(SenaCaculator.getCardDisplay)
+            .join(', '),
+          guestScore: game.guestScore.value,
+        });
+      } else if (hostOverScore && game.guestScore.value <= 21) {
+        await this.walletService.updateUserBalanceAfterGame(
+          game,
+          GAME_RESULT.GUEST_WIN,
+        );
+        resultMessage = gameMessages.overScoreDoubleCost({
           winnerName: game.guestName,
           loserName: game.hostName,
           cost: game.cost * 2,
+          winnerCardDisplay: game.guestCards
+            .map(SenaCaculator.getCardDisplay)
+            .join(', '),
+          winnerScore: game.guestScore.value,
+          loseCardDisplay: game.hostCards
+            .map(SenaCaculator.getCardDisplay)
+            .join(', '),
+          loseScore: game.hostScore.value,
         });
-    } else if (hostFive) {
-      await this.walletService.updateUserBalanceAfterGame(
-        game,
-        GAME_RESULT.HOST_WIN,
-      );
-      resultMessage =
-        content +
-        gameMessages.fiveSprits({
+      } else if (guestOverScore && game.hostScore.value <= 21) {
+        await this.walletService.updateUserBalanceAfterGame(
+          game,
+          GAME_RESULT.HOST_WIN,
+        );
+        resultMessage = gameMessages.overScoreDoubleCost({
           winnerName: game.hostName,
           loserName: game.guestName,
           cost: game.cost * 2,
+          winnerCardDisplay: game.hostCards
+            .map(SenaCaculator.getCardDisplay)
+            .join(', '),
+          winnerScore: game.hostScore.value,
+          loseCardDisplay: game.guestCards
+            .map(SenaCaculator.getCardDisplay)
+            .join(', '),
+          loseScore: game.guestScore.value,
         });
-    } else {
-      resultMessage = gameMessages[game.result]({
-        hostName: game.hostName,
-        hostCardDisplay: game.hostCards
-          .map(SenaCaculator.getCardDisplay)
-          .join(', '),
-        hostScore: game.hostScore.value,
-        guestName: game.guestName,
-        guestCardDisplay: game.guestCards
-          .map(SenaCaculator.getCardDisplay)
-          .join(', '),
-        guestScore: game.guestScore.value,
-        cost: game.cost,
-      });
-      await this.walletService.updateUserBalanceAfterGame(game, game.result);
+      } else {
+        resultMessage = gameMessages[game.result]({
+          hostName: game.hostName,
+          hostCardDisplay: game.hostCards
+            .map(SenaCaculator.getCardDisplay)
+            .join(', '),
+          hostScore: game.hostScore.value,
+          guestName: game.guestName,
+          guestCardDisplay: game.guestCards
+            .map(SenaCaculator.getCardDisplay)
+            .join(', '),
+          guestScore: game.guestScore.value,
+          cost: game.cost,
+        });
+        await this.walletService.updateUserBalanceAfterGame(game, game.result);
+      }
     }
 
     await this.messageService.updateGameMessageOnEnd({
@@ -773,15 +796,24 @@ export class SenaGameService {
       guestName: game.guestName,
     });
 
-    await this.messageService.sendGameResultMessage({
-      channelId: record.channelId,
-      replyToMessageId: record.messageId,
-      hostName: game.hostName,
-      guestName: game.guestName,
-      resultMessage,
-      hostId: game.hostId,
-      guestId: game.guestId,
-    });
+    try {
+      await this.messageService.sendGameResultMessage({
+        channelId: record.channelId,
+        replyToMessageId: record.messageId,
+        hostName: game.hostName,
+        guestName: game.guestName,
+        resultMessage,
+        hostId: game.hostId,
+        guestId: game.guestId,
+      });
+    } catch (error) {
+      console.error('Error sending game result message:', error);
+      await this.messageService.updateSystemMessage(
+        record.channelId,
+        record.messageId,
+        'Đã có lỗi xảy ra khi gửi kết quả game. Vui lòng kiểm tra lại!',
+      );
+    }
   }
 
   async handleEarlyWin(
@@ -815,6 +847,67 @@ export class SenaGameService {
         },
       }),
     ]);
+  }
+
+  private async handleFiveSpirits(game: Game): Promise<{
+    resultMessage: string;
+    result: GAME_RESULT | null;
+    cost: number;
+  }> {
+    const hostFive = game.hostScore.isFiveSprits;
+    const guestFive = game.guestScore.isFiveSprits;
+
+    const content =
+      `Bài của ${game.hostName} là ${game.hostCards.map(SenaCaculator.getCardDisplay).join(', ')} => Tổng: ${game.hostScore.value}.\n` +
+      `Bài của ${game.guestName} là ${game.guestCards.map(SenaCaculator.getCardDisplay).join(', ')} => Tổng: ${game.guestScore.value}.\n`;
+
+    if (guestFive && hostFive) {
+      await this.walletService.updateUserBalanceAfterGame(
+        game,
+        GAME_RESULT.DRAW,
+      );
+      return {
+        resultMessage:
+          content +
+          `Cả ${game.guestName} và ${game.hostName} đều ngũ linh. HÒA!`,
+        result: GAME_RESULT.DRAW,
+        cost: game.cost,
+      };
+    } else if (guestFive) {
+      await this.walletService.updateUserBalanceAfterGame(
+        game,
+        GAME_RESULT.GUEST_WIN,
+      );
+      return {
+        resultMessage:
+          content +
+          gameMessages.fiveSprits({
+            winnerName: game.guestName,
+            loserName: game.hostName,
+            cost: game.cost * 2,
+          }),
+        result: GAME_RESULT.GUEST_WIN,
+        cost: game.cost * 2,
+      };
+    } else if (hostFive) {
+      await this.walletService.updateUserBalanceAfterGame(
+        game,
+        GAME_RESULT.HOST_WIN,
+      );
+      return {
+        resultMessage:
+          content +
+          gameMessages.fiveSprits({
+            winnerName: game.hostName,
+            loserName: game.guestName,
+            cost: game.cost * 2,
+          }),
+        result: GAME_RESULT.HOST_WIN,
+        cost: game.cost * 2,
+      };
+    }
+
+    return { resultMessage: '', result: null, cost: game.cost };
   }
 
   private generateEarlyWinMessage(game: Game, earlyWin: GAME_RESULT): string {

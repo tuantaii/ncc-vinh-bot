@@ -1,25 +1,19 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
-
+import { Injectable, Logger } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
   ApiMessageReaction,
-  MezonClient,
-  Events,
-  ChannelMessage,
   ChannelCreatedEvent,
   ChannelDeletedEvent,
+  ChannelMessage,
   ChannelUpdatedEvent,
+  Events,
+  MezonClient,
+  TokenSentEvent,
   UserChannelAddedEvent,
   UserClanRemovedEvent,
-  TokenSentEvent,
 } from 'mezon-sdk';
-import { MezonService } from '../mezon/mezon.service';
-import { EventEmitter2 } from '@nestjs/event-emitter';
-// import {
-//   MessageButtonClickedEvent,
-//   TokenSentEventI,
-// } from 'src/fomu/command/topup/types';
-import { RedisRepository } from 'src/core/redis/redis.repo';
 import { MessageButtonClicked } from 'mezon-sdk/dist/cjs/rtapi/realtime';
+import { RedisRepository } from 'src/core/redis/redis.repo';
 import { BOT_NAME } from '../command/sena/constansts';
 
 @Injectable()
@@ -155,7 +149,6 @@ export class BotGateway {
 
   /* cspell:words handlechannelmessage */
   handlechannelmessage = async (msg: ChannelMessage) => {
-    console.log('mentions test', msg);
     if (msg.code) return; // ignored edited message
     ['attachments', 'mentions', 'references'].forEach((key) => {
       if (!Array.isArray(msg[key])) msg[key] = [];

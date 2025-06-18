@@ -9,9 +9,11 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { MezonService } from 'src/v2/mezon/mezon.service';
 import { EMessagePayloadType, EMessageType } from 'src/v2/mezon/types/mezon';
 import {
+  ADMIN_IDS,
   BLOCK_WITHDRAW_KEY,
   EMPTY_BALANCE_MESSAGES,
   GAME_RESULT,
+  ID_ADMIN1,
   WR_SYSTEM,
 } from '../constansts';
 import { SenaCaculator } from '../ultis';
@@ -236,8 +238,8 @@ export class SenaWalletService {
   }
 
   async handleOnWithDraw(data: ChannelMessage) {
-    if (data.sender_id !== '1930090353453436928') {
-      await this.mezon.sendMessage({
+    if (!ADMIN_IDS.includes(data.sender_id)) {
+      return this.mezon.sendMessage({
         type: EMessageType.CHANNEL,
         reply_to_message_id: data.message_id,
         payload: {
@@ -248,7 +250,6 @@ export class SenaWalletService {
           },
         },
       });
-      return;
     }
 
     await this.redisRepository.delete(WR_SYSTEM, BLOCK_WITHDRAW_KEY);

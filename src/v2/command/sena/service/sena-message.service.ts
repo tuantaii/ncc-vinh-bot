@@ -255,7 +255,6 @@ export class SenaMessageService {
     const messageContent = `${normalContent}\n${resultMessage}`;
     const apiMentions: Array<ApiMessageMention> = [];
 
-    // Calculate positions for mentions
     const hostMentionString = hostName;
     const guestMentionString = guestName;
 
