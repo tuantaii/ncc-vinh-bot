@@ -396,6 +396,9 @@ export class SenaGameService {
         ),
       ]);
 
+      const guestMessageId = guestEphemeral.message_id;
+      const hostMessageId = hostEphemeral.message_id;
+
       const earlyWin = game.calculateEarlyWin();
 
       if (earlyWin === GAME_RESULT.HOST_WIN || earlyWin) {
