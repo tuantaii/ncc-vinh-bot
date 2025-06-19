@@ -295,7 +295,7 @@ export class SenaWalletService {
           }),
           tx.transactionLogs.create({
             data: {
-              transactionId: `refund_${record.id}_${Date.now()}`,
+              transactionId: uuidv4(),
               userId: record.hostId,
               amount: totalLock,
               type: ETransactionType.REFUND,
@@ -303,7 +303,7 @@ export class SenaWalletService {
           }),
           tx.transactionLogs.create({
             data: {
-              transactionId: `refund_${record.id}_${Date.now()}`,
+              transactionId: uuidv4(),
               userId: record.guestId,
               amount: totalLock,
               type: ETransactionType.REFUND,

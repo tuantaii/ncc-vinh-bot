@@ -23,6 +23,7 @@ import { GameMetadata } from '../types/game';
 import { ButtonKey, SenaCaculator } from '../ultis';
 import { SenaMessageService } from './sena-message.service';
 import { SenaWalletService } from './sena-wallet.service';
+import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class SenaGameService {
@@ -334,7 +335,7 @@ export class SenaGameService {
           }),
           tx.transactionLogs.create({
             data: {
-              transactionId: `lock_${record.id}_${Date.now()}_host`,
+              transactionId: uuidv4(),
               userId: record.hostId,
               amount: -totalLock,
               type: ETransactionType.LOCKS,
@@ -342,7 +343,7 @@ export class SenaGameService {
           }),
           tx.transactionLogs.create({
             data: {
-              transactionId: `lock_${record.id}_${Date.now()}_guest`,
+              transactionId: uuidv4(),
               userId: record.guestId,
               amount: -totalLock,
               type: ETransactionType.LOCKS,
