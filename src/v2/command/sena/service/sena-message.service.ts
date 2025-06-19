@@ -2,11 +2,9 @@ import { Inject, Injectable } from '@nestjs/common';
 import {
   ApiMessageMention,
   ChannelMessage,
-  ChannelMessageContent,
   EMarkdownType,
   MezonClient,
 } from 'mezon-sdk';
-import { TextChannel } from 'mezon-sdk/dist/cjs/mezon-client/structures/TextChannel';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { MezonService } from 'src/v2/mezon/mezon.service';
 import { EMessagePayloadType, EMessageType } from 'src/v2/mezon/types/mezon';
@@ -48,51 +46,27 @@ export class SenaMessageService {
     channel_id: string,
     content: string,
     reply_to_message_id?: string,
-    mentions?: Array<{
-      user_id: string;
-      username: string;
-    }>,
+    mentions?: ApiMessageMention[],
   ) {
-    let messageContent = content;
-    const apiMentions: Array<ApiMessageMention> = [];
-
-    if (mentions && mentions.length > 0) {
-      let mentionText = '';
-      let currentPosition = 0;
-
-      mentions.forEach((mention, index) => {
-        const mentionString = `@${mention.username}`;
-        if (index === mentions.length - 1) {
-          mentionText += mentionString;
-        } else {
-          mentionText += `${mentionString}, `;
-        }
-
-        apiMentions.push({
-          user_id: mention.user_id,
-          channel_id: channel_id,
-          s: currentPosition,
-          e: currentPosition + mentionString.length,
-        });
-
-        currentPosition = mentionText.length;
-      });
-
-      messageContent = `${mentionText}\n${content}`;
-    }
-
     return this.mezon.sendMessage({
       type: EMessageType.CHANNEL,
       reply_to_message_id,
       payload: {
         channel_id,
         message: {
-          type: mentions
-            ? EMessagePayloadType.NORMAL_TEXT
-            : EMessagePayloadType.SYSTEM,
-          content: messageContent,
+          type:
+            mentions && mentions.length > 0
+              ? EMessagePayloadType.NORMAL_TEXT
+              : EMessagePayloadType.SYSTEM,
+          content,
         },
-        mentions: apiMentions,
+        mentions:
+          mentions?.map((m) => ({
+            user_id: m.user_id,
+            channel_id,
+            s: m.s,
+            e: m.e,
+          })) || [],
       },
     });
   }
