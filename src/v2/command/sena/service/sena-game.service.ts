@@ -313,8 +313,28 @@ export class SenaGameService {
       },
     });
     if (!record || record.guestId !== user_id) return;
-
+    const hostBalance = await this.getOrCreateUserBalance(
+      record.hostId,
+      record.hostName,
+    );
+    const guestBalance = await this.getOrCreateUserBalance(
+      record.guestId,
+      record.guestName,
+    );
     const totalLock = record.cost * 3;
+
+    if (
+      !this.hasEnoughBalance(hostBalance.balance, totalLock) ||
+      !this.hasEnoughBalance(guestBalance.balance, totalLock)
+    ) {
+      const content = `😅 Số dư của ${record.hostName} hoặc ${record.guestName} không đủ để bắt đầu trận!`;
+      return this.messageService.updateSystemMessage(
+        record.channelId,
+        message_id,
+        content,
+      );
+    }
+
     let lockSuccess = false;
 
     try {

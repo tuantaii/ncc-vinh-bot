@@ -19,6 +19,8 @@ export const BLOCK_WITHDRAW_KEY = 'BLOCK_WITHDRAW_KEY';
 export const NHA_CAI = '*nhacai';
 export const MYIMAGE_QR =
   'https://myself-images.s3.ap-southeast-2.amazonaws.com/123.jpg';
+export const OFF_BOT = '*offbot';
+export const ON_BOT = '*onbot';
 
 export const VALID_COMMANDS = [
   MYSELF_COMMAND,
