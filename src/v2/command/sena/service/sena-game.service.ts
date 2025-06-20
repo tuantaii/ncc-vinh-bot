@@ -84,8 +84,6 @@ export class SenaGameService {
     const { partnerId, partnerName, parsedAmount } =
       SenaGameService.parsePartnerInfo(data, amount);
 
-    console.log('data', data);
-
     if (partnerName === process.env.BOT_NAME) {
       return this.messageService.sendSystemMessage(
         data.channel_id,

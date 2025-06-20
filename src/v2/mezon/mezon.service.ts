@@ -24,7 +24,6 @@ export class MezonService {
       let root: any;
       if (data.clan_id) {
         const clan = await this.mezonClient.clans.fetch(data.clan_id);
-        console.log('clan', clan);
         if (!clan?.id) {
           throw new Error(`Clan ${data.clan_id} not found`);
         }
@@ -43,7 +42,6 @@ export class MezonService {
       if (data.reply_to_message_id) {
         const message = await channel.messages.fetch(data.reply_to_message_id);
         if (!message?.id) {
-          console.log(message);
           throw new Error(
             `Message ${data.reply_to_message_id} not found in channel ${channel.id}`,
           );
