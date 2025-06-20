@@ -134,7 +134,6 @@ export class SenaWalletService {
           },
         },
       });
-      console.log('transfer balance is successfully');
     } catch (error) {
       await this.mezon.sendMessage({
         type: EMessageType.CHANNEL,
@@ -385,7 +384,6 @@ export class SenaWalletService {
       }
 
       await Promise.all([...balancePromises, ...logPromises]);
-      console.log('✅ Balance updated and win log recorded');
     } catch (err) {
       console.error('❌ Error updating balance or logging win:', err);
     }
