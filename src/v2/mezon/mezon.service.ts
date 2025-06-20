@@ -24,6 +24,7 @@ export class MezonService {
       let root: any;
       if (data.clan_id) {
         const clan = await this.mezonClient.clans.fetch(data.clan_id);
+        console.log('clan', clan);
         if (!clan?.id) {
           throw new Error(`Clan ${data.clan_id} not found`);
         }

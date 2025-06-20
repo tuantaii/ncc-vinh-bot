@@ -139,7 +139,11 @@ export const gameMessages = {
     `${data.winnerName} được Xì Jack, ${data.loserName} thua. x2 money. lụm ${SenaCaculator.formatVND(data.cost)} token`,
   doubleAce: (data: { winnerName: string; loserName: string; cost: number }) =>
     `${data.winnerName} được Xì Bàng, ${data.loserName} thua. x3 money. lụm ${SenaCaculator.formatVND(data.cost)} token`,
-  fiveSprits: (data: { winnerName: string; loserName: string; cost: number }) =>
+  fiveSpirits: (data: {
+    winnerName: string;
+    loserName: string;
+    cost: number;
+  }) =>
     `${data.winnerName} được ngũ linh, ${data.loserName} thua. x2 money. lụm ${SenaCaculator.formatVND(data.cost)} token`,
   [GAME_RESULT.DRAW]: (data: {
     hostName: string;

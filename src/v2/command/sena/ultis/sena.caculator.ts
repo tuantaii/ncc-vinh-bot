@@ -55,32 +55,33 @@ export class SenaCaculator {
   }
 
   static getRewardMultiplier(game: Game, result: GAME_RESULT): number {
-    const hostScore = game.hostScore.value;
-    const guestScore = game.guestScore.value;
-
-    if (result === GAME_RESULT.HOST_WIN) {
-      if (game.hostScore.isDoubleAce) return 3;
-      if (
-        game.hostScore.isBlackjack ||
-        game.hostScore.isFiveSprits ||
-        hostScore >= DOUBLE_COST_SCORE ||
-        guestScore >= DOUBLE_COST_SCORE
-      )
-        return 2;
-      return 1;
+    if (!game || !game.hostScore || !game.guestScore) {
+      throw new Error('Invalid game data');
     }
-    if (result === GAME_RESULT.GUEST_WIN) {
-      if (game.guestScore.isDoubleAce) return 3;
-      if (
-        game.guestScore.isBlackjack ||
-        game.guestScore.isFiveSprits ||
-        hostScore >= DOUBLE_COST_SCORE ||
-        guestScore >= DOUBLE_COST_SCORE
-      )
-        return 2;
-      return 1;
+    if (!Object.values(GAME_RESULT).includes(result)) {
+      throw new Error('Invalid game result');
     }
 
-    return 0;
+    if (result === GAME_RESULT.DRAW) {
+      return 0;
+    }
+
+    const isHostWin = result === GAME_RESULT.HOST_WIN;
+    const score = isHostWin ? game.hostScore : game.guestScore;
+    const opponentScore = isHostWin ? game.guestScore : game.hostScore;
+
+    if (score.isDoubleAce) {
+      return 3;
+    }
+    if (
+      score.isBlackjack ||
+      score.isFiveSpirits ||
+      score.value >= DOUBLE_COST_SCORE ||
+      opponentScore.value >= DOUBLE_COST_SCORE
+    ) {
+      return 2;
+    }
+
+    return 1;
   }
 }

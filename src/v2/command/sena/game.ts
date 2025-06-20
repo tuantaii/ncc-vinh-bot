@@ -126,7 +126,7 @@ export class Game {
     value: number;
     isBlackjack: boolean;
     isDoubleAce: boolean;
-    isFiveSprits: boolean;
+    isFiveSpirits: boolean;
   } {
     let total = 0;
     let aceCount = 0;
@@ -154,13 +154,13 @@ export class Game {
       cardIndices.length === 2 &&
       ranks.includes(0) &&
       ranks.some((r) => r === 10 || r === 11 || r === 12 || r === 9); // 10, J, Q, K
-    const isFiveSprits = cardIndices.length === 5 && total <= 21;
+    const isFiveSpirits = cardIndices.length === 5 && total <= 21;
 
     return {
       value: total,
       isBlackjack,
       isDoubleAce,
-      isFiveSprits,
+      isFiveSpirits,
     };
   }
 
