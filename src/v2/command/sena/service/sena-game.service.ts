@@ -84,6 +84,8 @@ export class SenaGameService {
     const { partnerId, partnerName, parsedAmount } =
       SenaGameService.parsePartnerInfo(data, amount);
 
+    console.log('data', data);
+
     if (partnerName === process.env.BOT_NAME) {
       return this.messageService.sendSystemMessage(
         data.channel_id,
@@ -177,7 +179,7 @@ export class SenaGameService {
 
     const guestBalance = await this.getOrCreateUserBalance(
       partnerId,
-      data.username!,
+      partnerName!,
     );
 
     if (!this.hasEnoughBalance(guestBalance.balance, amount)) {
@@ -323,10 +325,7 @@ export class SenaGameService {
     );
     const totalLock = record.cost * 3;
 
-    if (
-      !this.hasEnoughBalance(hostBalance.balance, totalLock) ||
-      !this.hasEnoughBalance(guestBalance.balance, totalLock)
-    ) {
+    if (hostBalance.balance < totalLock || guestBalance.balance < totalLock) {
       const content = `😅 Số dư của ${record.hostName} hoặc ${record.guestName} không đủ để bắt đầu trận!`;
       return this.messageService.updateSystemMessage(
         record.channelId,
@@ -746,7 +745,10 @@ export class SenaGameService {
     let resultMessage = '';
 
     const fiveSpiritsResult = await this.handleFiveSpirits(game);
-    if (fiveSpiritsResult.result) {
+    if (
+      fiveSpiritsResult.result ||
+      fiveSpiritsResult.result === GAME_RESULT.HOST_WIN
+    ) {
       resultMessage = fiveSpiritsResult.resultMessage;
     } else {
       if (hostBust && guestBust) {
@@ -885,8 +887,8 @@ export class SenaGameService {
     result: GAME_RESULT | null;
     cost: number;
   }> {
-    const hostFive = game.hostScore.isFiveSprits;
-    const guestFive = game.guestScore.isFiveSprits;
+    const hostFive = game.hostScore.isFiveSpirits;
+    const guestFive = game.guestScore.isFiveSpirits;
 
     const content =
       `Bài của ${game.hostName} là ${game.hostCards.map(SenaCaculator.getCardDisplay).join(', ')} => Tổng: ${game.hostScore.value}.\n` +
@@ -912,7 +914,7 @@ export class SenaGameService {
       return {
         resultMessage:
           content +
-          gameMessages.fiveSprits({
+          gameMessages.fiveSpirits({
             winnerName: game.guestName,
             loserName: game.hostName,
             cost: game.cost * 2,
@@ -928,7 +930,7 @@ export class SenaGameService {
       return {
         resultMessage:
           content +
-          gameMessages.fiveSprits({
+          gameMessages.fiveSpirits({
             winnerName: game.hostName,
             loserName: game.guestName,
             cost: game.cost * 2,
