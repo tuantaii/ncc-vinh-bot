@@ -128,32 +128,52 @@ export class Game {
     isDoubleAce: boolean;
     isFiveSpirits: boolean;
   } {
-    let total = 0;
-    let aceCount = 0;
     const ranks = cardIndices.map((i) => i % 13);
+    const aces = ranks.filter((rank) => rank === 0);
+    const nonAces = ranks.filter((rank) => rank !== 0);
 
-    for (const rank of ranks) {
-      if (rank === 0) {
-        aceCount++;
-        total += 11;
-      } else if (rank >= 10) {
-        total += 10;
+    let nonAceTotal = 0;
+    for (const rank of nonAces) {
+      if (rank >= 10) {
+        nonAceTotal += 10;
       } else {
-        total += rank + 1;
+        nonAceTotal += rank + 1;
       }
     }
 
-    while (total > 21 && aceCount > 0) {
-      total -= 10;
-      aceCount--;
+    let total = nonAceTotal;
+    const aceCount = aces.length;
+
+    if (aceCount > 0) {
+      if (cardIndices.length === 3 && aceCount === 1) {
+        if (nonAceTotal + 10 <= 21) {
+          total = nonAceTotal + 10;
+        } else if (nonAceTotal + 11 <= 21) {
+          total = nonAceTotal + 11;
+        } else {
+          total = nonAceTotal + 1;
+        }
+      } else if (cardIndices.length > 3) {
+        total += aceCount;
+      } else {
+        total += aceCount * 11;
+
+        let acesAsEleven = aceCount;
+        while (total > 21 && acesAsEleven > 0) {
+          total -= 10;
+          acesAsEleven--;
+        }
+      }
     }
 
     const isDoubleAce =
       cardIndices.length === 2 && ranks[0] === 0 && ranks[1] === 0;
+
     const isBlackjack =
       cardIndices.length === 2 &&
       ranks.includes(0) &&
-      ranks.some((r) => r === 10 || r === 11 || r === 12 || r === 9); // 10, J, Q, K
+      ranks.some((r) => r >= 9);
+
     const isFiveSpirits = cardIndices.length === 5 && total <= 21;
 
     return {

@@ -34,23 +34,41 @@ export class SenaCaculator {
   }
 
   static calculateHandValue(hand: number[]): number {
-    let total = 0;
-    let aceCount = 0;
-    for (const card of hand) {
-      const rankIndex = card % 13;
-      if (rankIndex === 0) {
-        aceCount++;
-        total += 11;
-      } else if (rankIndex >= 10) {
-        total += 10;
+    const ranks = hand.map((i) => i % 13);
+    const aces = ranks.filter((rank) => rank === 0);
+    const nonAces = ranks.filter((rank) => rank !== 0);
+
+    let nonAceTotal = 0;
+    for (const rank of nonAces) {
+      if (rank >= 10) {
+        nonAceTotal += 10;
       } else {
-        total += rankIndex + 1;
+        nonAceTotal += rank + 1;
       }
     }
-    while (total > 21 && aceCount > 0) {
-      total -= 10;
-      aceCount--;
+
+    let total = nonAceTotal;
+    const aceCount = aces.length;
+
+    if (aceCount > 0) {
+      if (hand.length === 3 && aceCount === 1) {
+        if (nonAceTotal + 10 <= 21) {
+          total = nonAceTotal + 10;
+        } else if (nonAceTotal + 11 <= 21) {
+          total = nonAceTotal + 11;
+        } else {
+          total = nonAceTotal + 1;
+        }
+      } else {
+        total += aceCount * 11;
+        let acesAsEleven = aceCount;
+        while (total > 21 && acesAsEleven > 0) {
+          total -= 10;
+          acesAsEleven--;
+        }
+      }
     }
+
     return total;
   }
 

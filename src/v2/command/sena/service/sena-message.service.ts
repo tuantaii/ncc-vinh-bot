@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/unbound-method */
 import { Inject, Injectable } from '@nestjs/common';
 import {
   ApiMessageMention,
@@ -96,7 +97,7 @@ export class SenaMessageService {
       username: string;
     }>,
   ) {
-    let messageContent = content;
+    const messageContent = content;
     const apiMentions: Array<ApiMessageMention> = [];
 
     if (mentions && mentions.length > 0) {
@@ -313,7 +314,7 @@ export class SenaMessageService {
       username: string;
     }>,
   ) {
-    let messageContent = `${normalContent}\n${systemContent}`;
+    const messageContent = `${normalContent}\n${systemContent}`;
     const apiMentions: Array<ApiMessageMention> = [];
 
     if (mentions) {

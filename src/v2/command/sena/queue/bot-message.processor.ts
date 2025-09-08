@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
 import { Inject, Injectable, OnModuleInit } from '@nestjs/common';
 import { Job, QueueOptions, Worker } from 'bullmq';
 import Redis from 'ioredis';
@@ -5,7 +6,6 @@ import {
   CHECK_BALANCE_COMMAND,
   CHECK_TRANSACTION_COMMAND,
   CHECK_TRANSACTION_SEND_COMMAND,
-  gameMessages,
   HELP_COMMAND,
   MYSELF_COMMAND,
   STATISTICS_COMMAND,
