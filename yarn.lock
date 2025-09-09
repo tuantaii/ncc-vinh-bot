@@ -7109,10 +7109,10 @@ methods@^1.1.2:
   resolved "https://registry.yarnpkg.com/methods/-/methods-1.1.2.tgz#5529a4d67654134edcc5266656835b0f851afcee"
   integrity sha512-iclAHeNqNm68zFtnZ0e+1L2yUIdvzNoauKU4WBA3VvH/vPFieF7qfRlwUZU+DA9P9bPXIS90ulxoUoCH23sV2w==
 
-mezon-sdk@^2.7.96:
-  version "2.7.99"
-  resolved "https://registry.yarnpkg.com/mezon-sdk/-/mezon-sdk-2.7.99.tgz#2f92f40fd5390df71b2c4d1448292781792479ff"
-  integrity sha512-OE9yNt9PMUbEHvK9eIuZIef5lvhxW7u030KSFBSUcqeStA19LmDp+BdvPGvxbTqqLO0K71D+h0jNJPZxZJTOvA==
+mezon-sdk@^2.8.11:
+  version "2.8.11"
+  resolved "https://registry.yarnpkg.com/mezon-sdk/-/mezon-sdk-2.8.11.tgz#96a8bb9dd3cc4b3fdaa5d4ef307328db84036f8c"
+  integrity sha512-9TmOM9JcWGVXR8Ka5eGJJo3EVKfzWRA5HAuIwWhdeOOhVTpaUPVDBkE1yzbx2leB1QiTqdmYqzuNO/qnjw54kA==
   dependencies:
     "@types/ws" "^8.5.12"
     base64-arraybuffer "^1.0.2"
