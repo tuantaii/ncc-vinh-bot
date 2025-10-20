@@ -15,9 +15,17 @@ import { BotGateway } from '../bot/bot.gateway';
         logger: Logger,
         botGateway: BotGateway,
       ) => {
-        const client = new MezonClient(
-          configService.get<string>('MEZON_TOKEN'),
-        );
+        const botId = configService.get<string>('BOT_ID');
+        const token = configService.get<string>('MEZON_TOKEN');
+
+        if (!botId || !token) {
+          throw new Error('Bot ID or token is not set');
+        }
+
+        const client = new MezonClient({
+          botId,
+          token,
+        });
         await client.login();
         await botGateway.initEvent(client);
         logger.warn(`Mezon client initialized ${client.clientId}`);

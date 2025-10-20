@@ -244,6 +244,7 @@ export class MezonService {
       receiver_id: data.user_id,
       amount: data.amount,
       note: data.note,
+      sender_id: this.mezonClient.clientId! ?? process.env.BOT_ID!,
     });
   }
 }
