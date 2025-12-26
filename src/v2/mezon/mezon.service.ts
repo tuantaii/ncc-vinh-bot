@@ -55,7 +55,7 @@ export class MezonService {
         throw new Error(`Clan ${data.payload.clan_id} not found`);
       }
 
-      const user = await clan.users.fetch(data.payload.user_id);
+      const user = await this.mezonClient.users.fetch(data.payload.user_id);
       if (!user?.id) {
         throw new Error(
           `User ${data.payload.user_id} not found in clan ${clan.id}`,
@@ -244,7 +244,7 @@ export class MezonService {
       receiver_id: data.user_id,
       amount: data.amount,
       note: data.note,
-      sender_id: this.mezonClient.clientId! ?? process.env.BOT_ID!,
+      sender_id: this.mezonClient.clientId ?? process.env.BOT_ID!,
     });
   }
 }
