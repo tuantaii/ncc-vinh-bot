@@ -3,19 +3,19 @@ import { OnEvent } from '@nestjs/event-emitter';
 import { Queue } from 'bullmq';
 import { ChannelMessage, Events, TokenSentEvent } from 'mezon-sdk';
 import {
-  MYSELF_COMMAND,
-  NHA_CAI,
   OFF_WITHDRAW,
   ON_WITHDRAW,
   PLAY_COMMAND,
+  ROLL_TET,
+  VAR_TET,
   WITHDRAW_COMMAND,
 } from './constansts';
-import { MessageButtonClickedEvent } from './types';
 import {
   SenaGameService,
   SenaMessageService,
   SenaWalletService,
 } from './service';
+import { MessageButtonClickedEvent } from './types';
 
 @Injectable()
 export class SenaEvent {
@@ -58,13 +58,16 @@ export class SenaEvent {
       await this.walletService.handleOffWithDraw(data);
     } else if (data.content.t === ON_WITHDRAW) {
       await this.walletService.handleOnWithDraw(data);
-    } else if (data.content.t === NHA_CAI) {
-      await this.messageService.handleNhacaiCommand(data);
+    } else if (data.content.t === ROLL_TET) {
+      await this.messageService.handleRollTet(data);
+    } else if (data.content.t === VAR_TET) {
+      await this.messageService.handleVarTet(data);
     }
   }
 
   @OnEvent(Events.MessageButtonClicked)
   async handleMessageButtonClicked(data: MessageButtonClickedEvent) {
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises
     this.buttonActionQueue.add('button-action-queue', data);
   }
 }

@@ -16,11 +16,10 @@ export const ID_ADMIN3 = '1783440675396653056';
 export const OFF_WITHDRAW = '*offrut';
 export const ON_WITHDRAW = '*onrut';
 export const BLOCK_WITHDRAW_KEY = 'BLOCK_WITHDRAW_KEY';
-export const NHA_CAI = '*nhacai';
-export const MYIMAGE_QR =
-  'https://myself-images.s3.ap-southeast-2.amazonaws.com/123.jpg';
 export const OFF_BOT = '*offbot';
 export const ON_BOT = '*onbot';
+export const ROLL_TET = '*snroll';
+export const VAR_TET = '*snvar';
 
 export const VALID_COMMANDS = [
   MYSELF_COMMAND,
@@ -32,7 +31,6 @@ export const VALID_COMMANDS = [
   STATISTICS_COMMAND,
   OFF_WITHDRAW,
   ON_WITHDRAW,
-  NHA_CAI,
 ];
 
 export const ADMIN_IDS = [ID_ADMIN1, ID_ADMIN2, ID_ADMIN3];

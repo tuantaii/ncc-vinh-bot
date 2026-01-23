@@ -9,7 +9,7 @@ import {
 import { PrismaService } from 'src/prisma/prisma.service';
 import { MezonService } from 'src/v2/mezon/mezon.service';
 import { EMessagePayloadType, EMessageType } from 'src/v2/mezon/types/mezon';
-import { gameMessages, HDSD, MYIMAGE_QR } from '../constansts';
+import { gameMessages, HDSD } from '../constansts';
 import { SenaCaculator } from '../ultis';
 
 @Injectable()
@@ -26,8 +26,8 @@ export class SenaMessageService {
     await this.sendSystemMessage(data.channel_id, message, data.message_id);
   }
 
-  async handleNhacaiCommand(data: ChannelMessage) {
-    const content = `Nhà cái đây! 😎`;
+  async handleRollTet(data: ChannelMessage) {
+    const content = '!roll';
 
     const result = await this.mezon.sendMessage({
       type: EMessageType.CHANNEL,
@@ -37,7 +37,22 @@ export class SenaMessageService {
           type: EMessagePayloadType.NORMAL_TEXT,
           content: content,
         },
-        images: [MYIMAGE_QR],
+      },
+    });
+    return result;
+  }
+
+  async handleVarTet(data: ChannelMessage) {
+    const content = '!var tinh.phamthe';
+
+    const result = await this.mezon.sendMessage({
+      type: EMessageType.CHANNEL,
+      payload: {
+        channel_id: data.channel_id,
+        message: {
+          type: EMessagePayloadType.NORMAL_TEXT,
+          content: content,
+        },
       },
     });
     return result;
