@@ -266,6 +266,21 @@ export class SenaWalletService {
   }
 
   async handleOffWithDraw(data: ChannelMessage) {
+    if (!ADMIN_IDS.includes(data.sender_id)) {
+      return this.mezon.sendMessage({
+        type: EMessageType.CHANNEL,
+        reply_to_message_id: data.message_id,
+        payload: {
+          channel_id: data.channel_id,
+          message: {
+            type: EMessagePayloadType.SYSTEM,
+            content:
+              'Chỉ có người được chọn mới có thể tắt chức năng rút tiền.',
+          },
+        },
+      });
+    }
+
     await this.redisRepository.set(WR_SYSTEM, BLOCK_WITHDRAW_KEY, '1');
     await this.mezon.sendMessage({
       type: EMessageType.CHANNEL,
