@@ -150,7 +150,7 @@ export class SenaGameService {
     if (amount < 0 || amount > 1000000 || isNaN(amount)) {
       const message = `😅 Số tiền cược không hợp lệ. Vui lòng nhập số tiền từ 0 đến 1.000.000 token`;
       await this.mezon.updateMessage({
-        channel_id: promiseMessage.channel_id,
+        channel_id: data.channel_id,
         message_id: promiseMessage.message_id,
         content: {
           type: EMessagePayloadType.SYSTEM,
@@ -167,7 +167,7 @@ export class SenaGameService {
     if (!this.hasEnoughBalance(hostBalance.balance, amount)) {
       const message = `😅 Số dư của bạn không đủ để cược ${SenaCaculator.formatVND(amount)} token (phải ≥ ${SenaCaculator.formatVND(amount * 3)} token để phòng trường hợp x3)`;
       await this.mezon.updateMessage({
-        channel_id: promiseMessage.channel_id,
+        channel_id: data.channel_id,
         message_id: promiseMessage.message_id,
         content: {
           type: EMessagePayloadType.SYSTEM,
@@ -185,7 +185,7 @@ export class SenaGameService {
     if (!this.hasEnoughBalance(guestBalance.balance, amount)) {
       const message = `😅 Số dư của đối thủ không đủ để cược ${SenaCaculator.formatVND(amount)} token (phải ≥ ${SenaCaculator.formatVND(amount * 3)} token để phòng trường hợp x3)`;
       await this.mezon.updateMessage({
-        channel_id: promiseMessage.channel_id,
+        channel_id: data.channel_id,
         message_id: promiseMessage.message_id,
         content: {
           type: EMessagePayloadType.SYSTEM,
@@ -197,7 +197,7 @@ export class SenaGameService {
 
     await Promise.all([
       this.mezon.updateMessage({
-        channel_id: promiseMessage.channel_id,
+        channel_id: data.channel_id,
         message_id: promiseMessage.message_id,
         content: {
           type: EMessagePayloadType.OPTIONAL,
@@ -213,7 +213,7 @@ export class SenaGameService {
           hostId: data.sender_id,
           guestId: partnerId,
           cost: amount,
-          channelId: promiseMessage.channel_id,
+          channelId: data.channel_id,
           messageId: promiseMessage.message_id,
           clanId: data.clan_id!,
           isPublicChannel: data.is_public || false,
